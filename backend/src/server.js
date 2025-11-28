@@ -754,11 +754,11 @@ function resolveBrosDist() {
 const brosDist = resolveBrosDist();
 if (isProd && brosDist) {
   app.use(express.static(brosDist));
-
-  // SPA fallback (so refresh on /dashboard works)
-  app.get("*", (req, res) => {
+  // SPA fallback (Express 5-safe) - don't override API routes
+  app.get(/^(?!\/(auth|me|dashboard|schedule|leaderboard|admin)\b).*/, (req, res) => {
     res.sendFile(path.join(brosDist, "index.html"));
   });
+
 } else if (isProd) {
   console.warn("PROD: brosDist not found; frontend will not be served.");
 }
