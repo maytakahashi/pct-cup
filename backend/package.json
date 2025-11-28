@@ -4,10 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build:frontend": "npm --prefix frontend install && npm --prefix frontend run build",
-    "build:admin": "npm --prefix admin-frontend install && npm --prefix admin-frontend run build",
-    "build:all": "npm run build:frontend && npm run build:admin",
-    "start": "cd backend && npx prisma migrate deploy && node src/server.js"
+    "dev": "node src/server.js",
+    "start": "npx prisma migrate deploy && node src/server.js",
+    "prisma:generate": "prisma generate",
+    "migrate:deploy": "prisma migrate deploy"
   },
   "keywords": [],
   "author": "",
