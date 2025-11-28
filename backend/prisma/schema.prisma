@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+
+enum Role {
+  BRO
+  ADMIN
+}
+
+enum CategoryKey {
+  CHAPTER
+  RUSH
+  INTERNAL
+  CORPORATE
+  PLEDGE
+  SERVICE
+  CASUAL
+  // (optional later) SOCIAL
+}
+
+enum ClassType {
+  NON_GRAD
+  SENIOR
+}
+
+model Team {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  users User[]
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         Role
+  classType    ClassType
+
+  teamId       Int?
+  team         Team?    @relation(fields: [teamId], references: [id])
+
+  sessions     Session[]
+  attendance   Attendance[]
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  tokenHash String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([userId])
+}
+
+model Category {
+  id    Int         @id @default(autoincrement())
+  key   CategoryKey @unique
+  name  String
+  color String
+
+  requirements Requirement[]
+  events       Event[]
+}
+
+model Checkpoint {
+  id        Int      @id @default(autoincrement())
+  number    Int      @unique // 1,2,3,4(for final)
+  label     String
+  startDate DateTime
+  endDate   DateTime
+
+  requirements Requirement[]
+  events       Event[]
+}
+
+model Requirement {
+  id           Int        @id @default(autoincrement())
+  checkpointId Int
+  checkpoint   Checkpoint @relation(fields: [checkpointId], references: [id])
+
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  classType ClassType
+  required  Int
+
+  @@unique([checkpointId, categoryId, classType])
+}
+
+model Event {
+  id         Int      @id @default(autoincrement())
+  title      String
+  startsAt   DateTime
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  checkpointId Int? // optional, but helpful
+  checkpoint   Checkpoint? @relation(fields: [checkpointId], references: [id])
+
+  mandatory Boolean @default(false)
+
+  // If SERVICE category, set hours as an integer (no partials).
+  serviceHours Int?
+
+  attendances Attendance[]
+}
+
+model Attendance {
+  id      Int @id @default(autoincrement())
+  eventId Int
+  userId  Int
+
+  event Event @relation(fields: [eventId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  present Boolean @default(true)
+
+  @@unique([eventId, userId])
+  @@index([userId])
+}

@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+/* Remove Vite template defaults that break layout + contrast */
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #fafafa; /* zinc-50-ish */
+  color: #18181b;      /* zinc-900-ish */
+}
