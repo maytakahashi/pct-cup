@@ -1,11 +1,22 @@
 require("dotenv").config();
+const fs = require("fs");
+const path = require("path");
 const bcrypt = require("bcryptjs");
 const { PrismaClient } = require("@prisma/client");
+
 const prisma = new PrismaClient();
 
 const ADMIN_USERNAME = "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "password";
 const DEFAULT_BRO_PASSWORD = process.env.DEFAULT_BRO_PASSWORD || "password";
+
+// ---- Helpers ----
+function mustReadJson(filePath) {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Missing required file: ${filePath}`);
+  }
+  return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+}
 
 async function seedCategories() {
   const categories = [
@@ -15,40 +26,49 @@ async function seedCategories() {
     { key: "CORPORATE", name: "Corporate", color: "#34C759" },
     { key: "PLEDGE", name: "Pledge", color: "#5856D6" },
     { key: "SERVICE", name: "Service", color: "#FF3B30" },
-    { key: "CASUAL", name: "Casual", color: "#9FB0D0" }
+    { key: "CASUAL", name: "Casual", color: "#9FB0D0" },
   ];
 
   for (const c of categories) {
     await prisma.category.upsert({
       where: { key: c.key },
       update: { name: c.name, color: c.color },
-      create: c
+      create: c,
     });
   }
   console.log("✅ categories seeded");
 }
 
 async function seedCheckpoints() {
-  // You can change dates later; needs to be 2026.
+  // IMPORTANT: your schema requires startDate + endDate.
+  // Edit these later if you want different checkpoint windows.
   const checkpoints = [
-    { number: 1, label: "Checkpoint 1", endDate: "2026-01-31" },
-    { number: 2, label: "Checkpoint 2", endDate: "2026-03-31" },
-    { number: 3, label: "Checkpoint 3", endDate: "2026-05-31" },
-    { number: 4, label: "Checkpoint 4", endDate: "2026-08-31" }
+    { number: 1, label: "Checkpoint 1", startDate: "2026-01-01", endDate: "2026-01-31" },
+    { number: 2, label: "Checkpoint 2", startDate: "2026-02-01", endDate: "2026-03-31" },
+    { number: 3, label: "Checkpoint 3", startDate: "2026-04-01", endDate: "2026-05-31" },
+    { number: 4, label: "Checkpoint 4", startDate: "2026-06-01", endDate: "2026-08-31" },
   ];
 
   for (const cp of checkpoints) {
+    const startDate = new Date(cp.startDate + "T00:00:00.000Z");
+    const endDate = new Date(cp.endDate + "T00:00:00.000Z");
+
     await prisma.checkpoint.upsert({
       where: { number: cp.number },
-      update: { label: cp.label, endDate: new Date(cp.endDate + "T00:00:00.000Z") },
-      create: { number: cp.number, label: cp.label, endDate: new Date(cp.endDate + "T00:00:00.000Z") }
+      update: { label: cp.label, startDate, endDate },
+      create: { number: cp.number, label: cp.label, startDate, endDate },
     });
   }
-  console.log("✅ checkpoints seeded");
+
+  console.log("✅ checkpoints seeded (startDate+endDate)");
 }
 
 async function seedAdmin() {
   const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
+
+  // Your schema requires classType even for admin.
+  // Pick ANY valid enum value; SENIOR is common in your app.
+  const adminClassType = "SENIOR";
 
   await prisma.user.upsert({
     where: { username: ADMIN_USERNAME },
@@ -57,7 +77,8 @@ async function seedAdmin() {
       role: "ADMIN",
       firstName: "Admin",
       lastName: "User",
-      teamId: null
+      teamId: null,
+      classType: adminClassType,
     },
     create: {
       username: ADMIN_USERNAME,
@@ -65,22 +86,25 @@ async function seedAdmin() {
       role: "ADMIN",
       firstName: "Admin",
       lastName: "User",
-      teamId: null
-    }
+      teamId: null,
+      classType: adminClassType,
+    },
   });
 
-  console.log(`✅ admin seeded (username=${ADMIN_USERNAME})`);
+  console.log(`✅ admin seeded (username=${ADMIN_USERNAME}, password=${ADMIN_PASSWORD})`);
 }
 
-async function seedRosterFromJsonIfExists() {
+async function seedRosterFromJson() {
+  // Put roster.json here: backend/scripts/roster.json
   const rosterPath = path.join(__dirname, "roster.json");
-  const roster = JSON.parse(fs.readFileSync(rosterPath, "utf-8"));
+  const roster = mustReadJson(rosterPath);
 
-  const pw = process.env.DEFAULT_BRO_PASSWORD || "password";
-  const passwordHash = await bcrypt.hash(pw, 10);
+  const passwordHash = await bcrypt.hash(DEFAULT_BRO_PASSWORD, 10);
 
-  // Ensure teams exist (1..8)
-  for (let i = 1; i <= 8; i++) {
+  // Ensure teams exist.
+  // If your roster contains teamId up to some max, create all of them.
+  const maxTeamId = roster.reduce((m, u) => Math.max(m, u.teamId || 0), 0);
+  for (let i = 1; i <= maxTeamId; i++) {
     await prisma.team.upsert({
       where: { id: i },
       update: {},
@@ -88,8 +112,18 @@ async function seedRosterFromJsonIfExists() {
     });
   }
 
-  // Upsert bros from roster
+  // Upsert users
   for (const u of roster) {
+    // Defensive: ensure required fields exist
+    if (!u.username) throw new Error(`Roster row missing username: ${JSON.stringify(u)}`);
+    if (!u.firstName || !u.lastName) throw new Error(`Roster row missing name for ${u.username}`);
+    if (!u.role) throw new Error(`Roster row missing role for ${u.username}`);
+    if (!u.classType) throw new Error(`Roster row missing classType for ${u.username}`);
+    // teamId can be null for admin-ish rows, but BRO should have it
+    if (u.role === "BRO" && (u.teamId == null)) {
+      throw new Error(`BRO missing teamId for ${u.username}`);
+    }
+
     await prisma.user.upsert({
       where: { username: u.username },
       update: {
@@ -97,8 +131,9 @@ async function seedRosterFromJsonIfExists() {
         lastName: u.lastName,
         role: u.role,
         classType: u.classType,
-        teamId: u.teamId,
-        passwordHash,
+        teamId: u.teamId ?? null,
+        // always reset bro passwords to DEFAULT_BRO_PASSWORD (easy testing)
+        passwordHash: u.username === ADMIN_USERNAME ? undefined : passwordHash,
       },
       create: {
         username: u.username,
@@ -106,24 +141,28 @@ async function seedRosterFromJsonIfExists() {
         lastName: u.lastName,
         role: u.role,
         classType: u.classType,
-        teamId: u.teamId,
-        passwordHash,
+        teamId: u.teamId ?? null,
+        passwordHash: u.username === ADMIN_USERNAME ? passwordHash : passwordHash,
       },
     });
   }
 
-  console.log(`Seeded/updated ${roster.length} bros`);
+  console.log(`✅ roster seeded/updated (${roster.length} users)`);
 }
 
 async function seedRequirements() {
   const cps = await prisma.checkpoint.findMany({ select: { id: true } });
   const cats = await prisma.category.findMany({ select: { id: true, key: true } });
 
-  const classTypes = (await prisma.user.findMany({
-    where: { role: "BRO" },
-    distinct: ["classType"],
-    select: { classType: true }
-  })).map(x => x.classType);
+  const classTypes = (
+    await prisma.user.findMany({
+      where: { role: "BRO" },
+      distinct: ["classType"],
+      select: { classType: true },
+    })
+  )
+    .map((x) => x.classType)
+    .filter(Boolean);
 
   if (!cps.length) throw new Error("No checkpoints.");
   if (!cats.length) throw new Error("No categories.");
@@ -144,12 +183,12 @@ async function seedRequirements() {
 
         const exists = await prisma.requirement.findFirst({
           where: { checkpointId: cp.id, classType: ct, categoryId: c.id },
-          select: { id: true }
+          select: { id: true },
         });
 
         if (!exists) {
           await prisma.requirement.create({
-            data: { checkpointId: cp.id, classType: ct, categoryId: c.id, required }
+            data: { checkpointId: cp.id, classType: ct, categoryId: c.id, required },
           });
           created++;
         }
@@ -160,24 +199,34 @@ async function seedRequirements() {
   console.log("✅ requirements seeded:", created);
 }
 
+async function printCounts() {
+  const counts = {
+    categories: await prisma.category.count(),
+    checkpoints: await prisma.checkpoint.count(),
+    requirements: await prisma.requirement.count(),
+    events: await prisma.event.count(),
+    teams: await prisma.team.count(),
+    users: await prisma.user.count(),
+    bros: await prisma.user.count({ where: { role: "BRO" } }),
+    admins: await prisma.user.count({ where: { role: "ADMIN" } }),
+  };
+  console.log("COUNTS:", counts);
+}
+
 async function main() {
-  console.log("🌱 seeding start");
+  console.log("🌱 seed_all start");
   await seedCategories();
   await seedCheckpoints();
   await seedAdmin();
-
-  // IMPORTANT: your real bros/teams come from your roster seed script.
-  await seedRosterFromJsonIfExists();
-
-  // Requirements depend on BRO users existing.
+  await seedRosterFromJson();
   await seedRequirements();
-
-  console.log("🌱 seeding done");
+  await printCounts();
+  console.log("🌱 seed_all done");
 }
 
 main()
   .catch((e) => {
-    console.error("❌ seed failed:", e);
+    console.error("❌ seed_all failed:", e);
     process.exit(1);
   })
   .finally(async () => {
