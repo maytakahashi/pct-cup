@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node src/server.js",
     "start": "node src/server.js",
-    "railway:start": "prisma migrate deploy && node src/server.js"
+    "railway:start": "npx prisma migrate deploy && node src/server.js"
   },
   "keywords": [],
   "author": "",

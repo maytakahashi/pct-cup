@@ -1,0 +1,8 @@
+{
+  "name": "pct-cup-monorepo",
+  "private": true,
+  "scripts": {
+    "build": "npm ci --prefix backend && npm ci --prefix frontend && npm run build --prefix frontend",
+    "start": "npm --prefix backend run railway:start"
+  }
+}
