@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "seed:all": "node scripts/seed_all.js",
+    "reset:local": "npx prisma migrate reset --force && node scripts/seed_all.js",
     "dev": "node src/server.js",
     "start": "node src/server.js",
     "railway:start": "npx prisma generate && npx prisma migrate deploy && node src/server.js",
