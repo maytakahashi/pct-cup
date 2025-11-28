@@ -4,6 +4,8 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const bcrypt = require("bcryptjs");
 const { z } = require("zod");
+const path = require("path");
+const fs = require("fs");
 
 const { prisma } = require("./prisma");
 const {
@@ -18,12 +20,21 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
+// IMPORTANT for Railway / proxies so secure cookies work
 app.set("trust proxy", 1);
 
-app.use(cors({
-  origin: ["http://localhost:5173", "http://localhost:5174"],
-  credentials: true,
-}));
+const isProd = process.env.NODE_ENV === "production";
+
+// CORS should only be needed in dev when you run Vite separately.
+// In prod we want same-origin (backend serves the frontend) so cookies are painless.
+if (!isProd) {
+  app.use(
+    cors({
+      origin: ["http://localhost:5173", "http://localhost:5174"],
+      credentials: true,
+    })
+  );
+}
 
 // ---------- AUTH ----------
 app.post("/auth/login", async (req, res) => {
@@ -56,7 +67,7 @@ app.post("/auth/login", async (req, res) => {
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: false, // set true in production (https)
+    secure: isProd, // MUST be true on Railway (https)
     expires: expiresAt,
   });
 
@@ -68,7 +79,11 @@ app.post("/auth/logout", requireUser, async (req, res) => {
   if (token) {
     await prisma.session.deleteMany({ where: { tokenHash: sha256(token) } });
   }
-  res.clearCookie(COOKIE_NAME);
+  res.clearCookie(COOKIE_NAME, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: isProd,
+  });
   res.json({ ok: true });
 });
 
@@ -196,42 +211,11 @@ async function resolveNextCheckpoint() {
   return last;
 }
 
-async function completedByCategoryForUser(userId, checkpointEnd) {
-  const rows = await prisma.attendance.findMany({
-    where: {
-      userId,
-      present: true,
-      event: { startsAt: { lte: checkpointEnd } },
-    },
-    include: { event: true },
-  });
-
-  const map = new Map(); // categoryId -> { count, service }
-  for (const a of rows) {
-    const cid = a.event.categoryId;
-    const entry = map.get(cid) || { count: 0, service: 0 };
-    entry.count += 1;
-    entry.service += (a.event.serviceHours || 0);
-    map.set(cid, entry);
-  }
-  return map;
-}
-
-async function requiredMap(checkpointId) {
-  const reqs = await prisma.requirement.findMany({
-    where: { checkpointId },
-    include: { category: true },
-  });
-  const map = new Map(); // `${classType}:${categoryId}` -> required
-  for (const r of reqs) map.set(`${r.classType}:${r.categoryId}`, r.required);
-  return map;
-}
-
 function doesUserMeetCheckpoint({ cats, reqsMap, classType, completedMap }) {
   for (const c of cats) {
     const required = reqsMap.get(`${classType}:${c.id}`) ?? 0;
     const entry = completedMap.get(c.id) || { count: 0, service: 0 };
-    const completed = (c.key === "SERVICE") ? entry.service : entry.count;
+    const completed = c.key === "SERVICE" ? entry.service : entry.count;
     if (completed < required) return false;
   }
   return true;
@@ -288,9 +272,8 @@ app.get("/dashboard/me", requireUser, async (req, res) => {
   const cats = await getCategories();
   const reqs = await requiredMap(cp.id);
   const completedMap = await completedByCategoryForUser(req.user.id, cpEnd);
-  const oppsMap = await remainingOppsByCategory(cpEnd); // make sure this uses cpEnd and end-of-day
+  const oppsMap = await remainingOppsByCategory(cpEnd);
 
-  // (same mapping as before...)
   const out = cats.map((c) => {
     const required = reqs.get(`${req.user.classType}:${c.id}`) ?? 0;
     const completedEntry = completedMap.get(c.id) || { count: 0, service: 0 };
@@ -318,7 +301,6 @@ app.get("/dashboard/me", requireUser, async (req, res) => {
   });
 });
 
-
 // ---------- DASHBOARD: TEAM (totals + status only) ----------
 app.get("/dashboard/team", requireUser, async (req, res) => {
   const checkpointNumber = await resolveCheckpointNumber(req.query.checkpoint);
@@ -344,14 +326,18 @@ app.get("/dashboard/team", requireUser, async (req, res) => {
     const perCategory = cats.map((c) => {
       const required = reqs.get(`${tm.classType}:${c.id}`) ?? 0;
       const completedEntry = completedMap.get(c.id) || { count: 0, service: 0 };
-      const completed = (c.key === "SERVICE") ? completedEntry.service : completedEntry.count;
+      const completed = c.key === "SERVICE" ? completedEntry.service : completedEntry.count;
 
       const remainingNeeded = Math.max(required - completed, 0);
 
       const status =
         remainingNeeded === 0
-          ? (checkpointPassed ? "MET" : "COMPLETE")
-          : (checkpointPassed ? "OFF_TRACK" : "IN_PROGRESS");
+          ? checkpointPassed
+            ? "MET"
+            : "COMPLETE"
+          : checkpointPassed
+          ? "OFF_TRACK"
+          : "IN_PROGRESS";
 
       return { categoryKey: c.key, completed, required, status };
     });
@@ -369,7 +355,6 @@ app.get("/dashboard/team", requireUser, async (req, res) => {
     members,
   });
 });
-
 
 // ---------- SCHEDULE ----------
 app.get("/schedule", requireUser, async (req, res) => {
@@ -436,7 +421,7 @@ app.post("/admin/events", requireUser, requireAdmin, async (req, res) => {
   const category = await prisma.category.findUnique({ where: { key: categoryKey } });
   if (!category) return res.status(400).json({ error: "Invalid categoryKey" });
 
-  const mandatory = categoryKey === "INTERNAL"; // 👈 HARDENED RULE
+  const mandatory = categoryKey === "INTERNAL"; // HARD RULE
 
   const startsAtDate = new Date(startsAt);
   if (Number.isNaN(startsAtDate.getTime())) {
@@ -478,7 +463,6 @@ app.delete("/admin/events/:id", requireUser, requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
-
 // ---------- ADMIN: ATTENDANCE (load) ----------
 app.get("/admin/events/:id/attendance", requireUser, requireAdmin, async (req, res) => {
   const eventId = Number(req.params.id);
@@ -515,7 +499,6 @@ app.post("/admin/events/:id/attendance", requireUser, requireAdmin, async (req, 
   const exists = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true } });
   if (!exists) return res.status(404).json({ error: "Event not found" });
 
-  // Replace attendance for event
   await prisma.attendance.deleteMany({ where: { eventId } });
 
   const data = parsed.data.presentUserIds.map((userId) => ({
@@ -599,10 +582,9 @@ app.get("/leaderboard", requireUser, async (req, res) => {
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 
-  const userIds = users.map(u => u.id);
+  const userIds = users.map((u) => u.id);
   const completedByUser = await completedByCategoryForUsers(userIds, cp.endDate);
 
-  // Score = sum over categories of min(completed/required, 1)
   const rows = users.map((u) => {
     const completedMap = completedByUser.get(u.id) || new Map();
     let score = 0;
@@ -610,7 +592,11 @@ app.get("/leaderboard", requireUser, async (req, res) => {
 
     for (const c of cats) {
       const required = reqs.get(`${u.classType}:${c.id}`) ?? 0;
-      if (required <= 0) { onTrack += 1; score += 1; continue; }
+      if (required <= 0) {
+        onTrack += 1;
+        score += 1;
+        continue;
+      }
 
       const ce = completedMap.get(c.id) || { count: 0, service: 0 };
       const completed = c.key === "SERVICE" ? ce.service : ce.count;
@@ -644,13 +630,11 @@ app.get("/leaderboard/teams", requireUser, async (req, res) => {
   const cats = await prisma.category.findMany({ orderBy: { id: "asc" } });
   const reqsMap = await requiredMap(cp.id);
 
-  // all bros (exclude admins)
   const bros = await prisma.user.findMany({
     where: { role: "BRO" },
     select: { id: true, teamId: true, classType: true, firstName: true, lastName: true },
   });
 
-  // group by teamId
   const byTeam = new Map();
   for (const b of bros) {
     if (!b.teamId) continue;
@@ -681,7 +665,7 @@ app.get("/leaderboard/teams", requireUser, async (req, res) => {
     });
   }
 
-  teams.sort((a, b) => (b.metCount - a.metCount) || (b.pct - a.pct) || (a.teamId - b.teamId));
+  teams.sort((a, b) => b.metCount - a.metCount || b.pct - a.pct || a.teamId - b.teamId);
 
   res.json({
     checkpoint: { number: cp.number, label: cp.label, endDate: cp.endDate },
@@ -689,7 +673,6 @@ app.get("/leaderboard/teams", requireUser, async (req, res) => {
   });
 });
 
-// ---------- LEADERBOARD: MY TEAM DETAILS (next checkpoint) ----------
 app.get("/leaderboard/my-team", requireUser, async (req, res) => {
   const cp = await resolveNextCheckpoint();
   if (!cp) return res.status(404).json({ error: "No checkpoints found" });
@@ -719,7 +702,7 @@ app.get("/leaderboard/my-team", requireUser, async (req, res) => {
     for (const c of cats) {
       const required = reqsMap.get(`${m.classType}:${c.id}`) ?? 0;
       const entry = completedMap.get(c.id) || { count: 0, service: 0 };
-      const completed = (c.key === "SERVICE") ? entry.service : entry.count;
+      const completed = c.key === "SERVICE" ? entry.service : entry.count;
 
       const remainingNeeded = Math.max(required - completed, 0);
       if (remainingNeeded > 0) {
@@ -747,18 +730,38 @@ app.get("/leaderboard/my-team", requireUser, async (req, res) => {
   });
 });
 
-import path from "path";
-import express from "express";
+// ---------- SERVE BROS FRONTEND (PROD) ----------
+function resolveBrosDist() {
+  // Try a few likely locations depending on Railway root/workdir
+  const candidates = [
+    // if process runs from backend/ (common)
+    path.resolve(process.cwd(), "..", "frontend", "dist"),
+    // if process runs from repo root
+    path.resolve(process.cwd(), "frontend", "dist"),
+    // if someone moved frontend inside backend/
+    path.resolve(process.cwd(), "frontend", "dist"),
+    // fallback relative to this file (backend/src)
+    path.resolve(__dirname, "..", "..", "frontend", "dist"),
+  ];
 
-const __dirname = path.resolve();
-const brosDist = path.join(__dirname, "..", "frontend", "dist");
+  for (const p of candidates) {
+    if (fs.existsSync(path.join(p, "index.html"))) return p;
+  }
 
-app.use(express.static(brosDist));
+  return null;
+}
 
-// SPA fallback (so refresh on /dashboard works)
-app.get("*", (req, res) => {
-  res.sendFile(path.join(brosDist, "index.html"));
-});
+const brosDist = resolveBrosDist();
+if (isProd && brosDist) {
+  app.use(express.static(brosDist));
+
+  // SPA fallback (so refresh on /dashboard works)
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(brosDist, "index.html"));
+  });
+} else if (isProd) {
+  console.warn("PROD: brosDist not found; frontend will not be served.");
+}
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`API on http://localhost:${PORT}`));
