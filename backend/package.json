@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "npx prisma migrate deploy && node src/server.js"
+    "start": "npx prisma migrate deploy && node src/server.js",
+    "build:frontend": "npm --prefix ../frontend ci && npm --prefix ../frontend run build",
+    "seed:prod": "node prisma/seed.js"
   },
   "keywords": [],
   "author": "",
