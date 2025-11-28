@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "npx prisma migrate deploy && node src/server.js",
-    "build:frontend": "npm --prefix ../frontend install && npm --prefix ../frontend run build",
+    "build:frontend": "cp -r ../frontend ./frontend && npm --prefix ./frontend install && npm --prefix ./frontend run build",
     "seed:prod": "node prisma/seed.js"
   },
   "keywords": [],
