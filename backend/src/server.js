@@ -18,6 +18,8 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
+app.set("trust proxy", 1);
+
 app.use(cors({
   origin: ["http://localhost:5173", "http://localhost:5174"],
   credentials: true,
@@ -745,6 +747,18 @@ app.get("/leaderboard/my-team", requireUser, async (req, res) => {
   });
 });
 
+import path from "path";
+import express from "express";
+
+const __dirname = path.resolve();
+const brosDist = path.join(__dirname, "..", "frontend", "dist");
+
+app.use(express.static(brosDist));
+
+// SPA fallback (so refresh on /dashboard works)
+app.get("*", (req, res) => {
+  res.sendFile(path.join(brosDist, "index.html"));
+});
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`API on http://localhost:${PORT}`));
