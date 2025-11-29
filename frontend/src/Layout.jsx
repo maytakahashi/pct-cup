@@ -63,6 +63,14 @@ export default function Layout() {
     })();
   }, []);
 
+  // If auth has been checked and there is no user, redirect to login automatically.
+  useEffect(() => {
+    if (authChecked && !me) {
+      // replace history so back button doesn't stay on the protected page
+      nav("/login", { replace: true });
+    }
+  }, [authChecked, me, nav]);
+
   async function logout() {
     try {
       setBusy(true);
@@ -86,35 +94,8 @@ export default function Layout() {
   }
 
   if (!me) {
-    return (
-      <div className="min-h-screen bg-[#050B1A] text-white flex items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/6 p-6 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur space-y-4">
-          <div>
-            <div className="text-sm text-slate-300">Not logged in</div>
-            <div className="mt-1 text-lg font-semibold">Please log in again</div>
-            {authError && <div className="mt-2 text-sm text-red-200">{authError}</div>}
-          </div>
-
-          <div className="flex gap-2">
-            <Link
-              to="/login"
-              className="inline-flex rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/15 hover:bg-white/15"
-            >
-              Go to login
-            </Link>
-
-            <a
-              href={apiOrigin ? `${apiOrigin}/me` : "/me"}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex rounded-xl border border-white/15 bg-white/4 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/10"
-            >
-              Test /me
-            </a>
-          </div>
-        </div>
-      </div>
-    );
+    // while redirecting, render nothing (or could show a spinner briefly)
+    return null;
   }
 
   const isAdmin = me?.role === "ADMIN";
