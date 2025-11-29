@@ -151,7 +151,7 @@ async function seedRosterFromJson() {
 }
 
 async function seedRequirements() {
-  const cps = await prisma.checkpoint.findMany({ select: { id: true } });
+  const cps = await prisma.checkpoint.findMany({ select: { id: true, number: true }, orderBy: { number: "asc" } });
   const cats = await prisma.category.findMany({ select: { id: true, key: true } });
 
   const classTypes = (
@@ -171,22 +171,51 @@ async function seedRequirements() {
     return;
   }
 
+  const nonGrad = {
+    CHAPTER:   [1, 4, 6, 10],
+    RUSH:      [6, 6, 6, 6],
+    INTERNAL:  [3, 3, 4, 5],
+    CORPORATE: [0, 1, 2, 2],
+    PLEDGE:    [0, 2, 4, 5],
+    SERVICE:   [1, 2, 3, 3],
+    CASUAL:    [1, 3, 4, 5],
+  };
+
+  const senior = {
+    CHAPTER:   [1, 3, 6, 8],
+    RUSH:      [4, 4, 4, 4],
+    INTERNAL:  [3, 3, 4, 5],
+    CORPORATE: [0, 1, 1, 1],
+    PLEDGE:    [0, 1, 2, 3],
+    SERVICE:   [1, 2, 2, 2],
+    CASUAL:    [1, 2, 3, 3],
+  };
+
   let created = 0;
+  let updated = 0;
 
   for (const cp of cps) {
+    const idx = Math.max(0, Math.min(cps.length - 1, (cp.number || 1) - 1));
+
     for (const ct of classTypes) {
+      const mapping = ct === "NON_GRAD" ? nonGrad : ct === "SENIOR" ? senior : null;
+      if (!mapping) continue;
+
       for (const c of cats) {
-        const required =
-          c.key === "CASUAL" ? 0 :
-          c.key === "SERVICE" ? 1 :
-          1;
+        const arr = mapping[c.key];
+        const required = Array.isArray(arr) ? (arr[idx] ?? 0) : 0;
 
         const exists = await prisma.requirement.findFirst({
           where: { checkpointId: cp.id, classType: ct, categoryId: c.id },
-          select: { id: true },
+          select: { id: true, required: true },
         });
 
-        if (!exists) {
+        if (exists) {
+          if (exists.required !== required) {
+            await prisma.requirement.update({ where: { id: exists.id }, data: { required } });
+            updated++;
+          }
+        } else {
           await prisma.requirement.create({
             data: { checkpointId: cp.id, classType: ct, categoryId: c.id, required },
           });
@@ -196,7 +225,7 @@ async function seedRequirements() {
     }
   }
 
-  console.log("✅ requirements seeded:", created);
+  console.log(`✅ requirements seeded: created ${created}, updated ${updated}`);
 }
 
 async function printCounts() {
