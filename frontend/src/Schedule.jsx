@@ -254,7 +254,9 @@ export default function Schedule() {
                   }}
                   className={[
                     "group relative h-[92px] w-full border-b border-r border-[#23304D] px-2 py-2 text-left transition",
-                    inMonth ? "bg-transparent hover:bg-[#0B0F1A]" : "bg-[#0B0F1A]/60 hover:bg-[#0B0F1A]/80",
+                    inMonth
+                      ? "bg-white/6 hover:bg-white/10"
+                      : "bg-white/2 hover:bg-white/5 opacity-60",
                     isSel ? "ring-2 ring-inset ring-[#EAF0FF]" : "",
                   ].join(" ")}
                 >

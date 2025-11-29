@@ -5,26 +5,56 @@ function pct(n) {
   return `${Math.round((n || 0) * 100)}%`;
 }
 
-function GradientProgress({ value }) {
-  const v = Math.max(0, Math.min(1, value || 0));
+function clamp01(x) {
+  if (!Number.isFinite(x)) return 0;
+  return Math.max(0, Math.min(1, x));
+}
+
+function RainbowRule({ className = "" }) {
   return (
-    <div className="h-[18px] w-full rounded-full border border-[#23304D] bg-[#0B0F1A] p-[2px]">
+    <div className={["relative", className].join(" ")}>
+      <div className="h-px w-full bg-[linear-gradient(90deg,#ef4444,#f59e0b,#fde047,#22c55e,#38bdf8,#6366f1,#a855f7)] opacity-90" />
+      <div className="pointer-events-none absolute inset-x-0 -top-2 h-6 bg-[linear-gradient(90deg,rgba(239,68,68,0.25),rgba(245,158,11,0.25),rgba(253,224,71,0.22),rgba(34,197,94,0.22),rgba(56,189,248,0.22),rgba(99,102,241,0.22),rgba(168,85,247,0.22))] blur-xl" />
+    </div>
+  );
+}
+
+function Surface({ className = "", children }) {
+  return (
+    <div
+      className={[
+        "rounded-2xl border border-white/10 bg-white/[0.06] shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur",
+        className,
+      ].join(" ")}
+    >
+      {children}
+    </div>
+  );
+}
+
+function ProgressBar({ value, highlight = false }) {
+  const v = clamp01(value || 0);
+  const w = `${Math.round(v * 100)}%`;
+
+  return (
+    <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/10 ring-1 ring-white/10">
       <div
-        className="h-[14px] rounded-full"
-        style={{
-          width: `${Math.round(v * 100)}%`,
-          background:
-            "linear-gradient(90deg, #FF3B30, #FF9500, #FFCC00, #34C759, #007AFF, #5856D6, #AF52DE)",
-        }}
+        className={[
+          "h-2.5 rounded-full",
+          highlight
+            ? "bg-[linear-gradient(90deg,#22c55e,#38bdf8,#a78bfa,#f472b6)] shadow-[0_0_18px_rgba(34,197,94,0.20)]"
+            : "bg-[linear-gradient(90deg,rgba(255,255,255,0.55),rgba(255,255,255,0.18))]",
+        ].join(" ")}
+        style={{ width: w }}
       />
     </div>
   );
 }
 
-function Card({ children }) {
+function RankPill({ rank }) {
   return (
-    <div className="rounded-2xl border border-[#23304D] bg-[#121A2B]/70 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur">
-      {children}
+    <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-[#0b1224]/60 text-sm font800 font-semibold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]">
+      {rank}
     </div>
   );
 }
@@ -57,100 +87,107 @@ export default function LeaderboardPage() {
 
   return (
     <div className="space-y-4">
-      <Card>
+      <Surface className="overflow-hidden">
         <div className="p-5">
-          <div className="text-xl font-semibold text-[#EAF0FF]">
-            Teams — who’s hitting the next checkpoint
-          </div>
-          {data?.checkpoint?.endDate && (
-            <div className="mt-1 text-sm text-[#9FB0D0]">
+          <div className="text-2xl font-semibold tracking-tight text-white">Teams — who’s hitting the next checkpoint</div>
+          {data?.checkpoint?.endDate ? (
+            <div className="mt-1 text-sm text-slate-300">
               Next checkpoint ends{" "}
-              {new Date(data.checkpoint.endDate).toLocaleDateString(undefined, {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-              })}
+              <span className="font-semibold text-slate-200">
+                {new Date(data.checkpoint.endDate).toLocaleDateString()}
+              </span>
             </div>
+          ) : (
+            <div className="mt-1 text-sm text-slate-300">Ranked by checkpoint completion.</div>
           )}
         </div>
-        <div
-          className="h-[2px] w-full opacity-80"
-          style={{
-            background:
-              "linear-gradient(90deg, #FF3B30, #FF9500, #FFCC00, #34C759, #007AFF, #5856D6, #AF52DE)",
-          }}
-        />
-        <div className="px-5 py-4 text-sm text-[#9FB0D0]">
-          Ranked by how many bros in each team have met <span className="font-semibold text-[#EAF0FF]">all</span>{" "}
-          category requirements for the next checkpoint.
+
+        <RainbowRule />
+
+        <div className="px-5 py-4 text-sm text-slate-300">
+          Ranked by how many bros in each team have met{" "}
+          <span className="font-semibold text-slate-200">all</span> category requirements for the next checkpoint.
         </div>
-      </Card>
+      </Surface>
 
       {err && (
-        <div className="rounded-xl border border-[#5b1b1b] bg-[#2a1010] px-4 py-3 text-sm text-[#FFB4B4]">
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
           {err}
         </div>
       )}
 
-      {loading && <div className="text-sm text-[#9FB0D0]">Loading…</div>}
+      {loading && <div className="text-sm text-slate-300">Loading…</div>}
 
       {!loading && (
         <div className="space-y-3">
           {rows.map((t, idx) => {
             const isMine = myTeamId != null && Number(t.teamId) === Number(myTeamId);
+            const p = clamp01(t.pct);
 
             return (
               <div
                 key={t.teamId}
                 className={[
-                  "rounded-2xl border border-[#23304D] bg-[#121A2B]/70 px-4 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.25)] backdrop-blur",
-                  isMine ? "ring-1 ring-[#34C759]/30" : "",
+                  "relative overflow-hidden rounded-2xl border bg-white/[0.05] shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur",
+                  isMine ? "border-emerald-300/30" : "border-white/10",
+                  isMine ? "ring-1 ring-emerald-400/20" : "",
                 ].join(" ")}
               >
-                <div className="flex items-center justify-between gap-4">
-                  {/* Left: rank + team */}
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-12 w-12 shrink-0 rounded-2xl border border-[#23304D] bg-[#0B0F1A] flex items-center justify-center">
-                      <div className="text-lg font-extrabold text-[#EAF0FF]">{idx + 1}</div>
-                    </div>
+                {/* left accent stripe (stronger for YOUR team) */}
+                <div
+                  className={[
+                    // use fixed top + height to avoid stretching the card vertically
+                    // make stripe taller so it reads visually prominent but doesn't stretch the card
+                    "pointer-events-none absolute left-3 top-5 h-22 w-1 rounded-full",
+                    isMine
+                      ? "bg-[linear-gradient(180deg,#22c55e,#38bdf8,#a78bfa,#f472b6)] opacity-95 shadow-[0_0_24px_rgba(34,197,94,0.20)]"
+                      : "bg-white/10",
+                  ].join(" ")}
+                />
 
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <div className="truncate text-lg font-extrabold text-[#EAF0FF]">
-                          Team {t.teamId}
+                <div className="p-5 pl-7">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <RankPill rank={idx + 1} />
+
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="text-lg font-semibold text-white">Team {t.teamId}</div>
+
+                          {isMine && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/30 bg-emerald-400/10 px-2 py-0.5 text-xs font-semibold text-emerald-200">
+                              ★ Your team
+                            </span>
+                          )}
                         </div>
-                        {isMine && (
-                          <span className="inline-flex items-center rounded-full border border-[#2d5a3b] bg-[#0f2418] px-2 py-0.5 text-xs font-semibold text-[#9ff2bf]">
-                            Your team
-                          </span>
-                        )}
+
+                        <div className="mt-1 text-sm text-slate-300">
+                          Met requirements:{" "}
+                          <span className="font-semibold text-slate-100">{t.metCount}</span> / {t.teamSize} bros{" "}
+                          <span className="text-slate-400">·</span>{" "}
+                          <span className="font-semibold text-slate-200">{pct(p)}</span>
+                        </div>
                       </div>
-                      <div className="mt-0.5 text-xs text-[#9FB0D0]">
-                        Met requirements:{" "}
-                        <span className="font-semibold text-[#EAF0FF]">
-                          {t.metCount}/{t.teamSize}
-                        </span>{" "}
-                        <span className="opacity-80">•</span> {pct(t.pct)}
-                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="text-3xl font-semibold tracking-tight text-white">{pct(p)}</div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">team completion</div>
                     </div>
                   </div>
 
-                  {/* Right: big percent number like the SVG */}
-                  <div className="shrink-0 text-right">
-                    <div className="text-2xl font-black text-[#EAF0FF]">{pct(t.pct)}</div>
-                    <div className="text-xs text-[#9FB0D0]">team completion</div>
+                  <div className="mt-4 space-y-2">
+                    <ProgressBar value={p} highlight={isMine} />
+                    <div className="flex items-center justify-between text-xs text-slate-400">
+                    </div>
                   </div>
-                </div>
-
-                <div className="mt-3">
-                  <GradientProgress value={t.pct} />
                 </div>
               </div>
             );
           })}
 
           {!rows.length && (
-            <div className="rounded-2xl border border-[#23304D] bg-[#121A2B]/70 px-5 py-6 text-sm text-[#9FB0D0]">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-6 text-sm text-slate-300">
               No teams found yet (missing team assignments).
             </div>
           )}

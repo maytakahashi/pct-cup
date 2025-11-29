@@ -1,6 +1,6 @@
 import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { api } from "./api";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 function NavLink({ to, children }) {
   const { pathname } = useLocation();
@@ -10,10 +10,10 @@ function NavLink({ to, children }) {
     <Link
       to={to}
       className={[
-        "rounded-lg px-3 py-1.5 text-sm transition border",
+        "rounded-xl px-3 py-1.5 text-sm font-semibold transition",
         active
-          ? "bg-[#121A2B] text-[#EAF0FF] border-[#23304D]"
-          : "text-[#9FB0D0] border-transparent hover:border-[#23304D] hover:bg-[#121A2B] hover:text-[#EAF0FF]",
+          ? "bg-white/10 text-white ring-1 ring-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.25)]"
+          : "text-slate-300 hover:bg-white/5 hover:text-white",
       ].join(" ")}
     >
       {children}
@@ -21,10 +21,11 @@ function NavLink({ to, children }) {
   );
 }
 
-function ShellCard({ children }) {
+function RainbowRule({ className = "" }) {
   return (
-    <div className="rounded-2xl border border-[#23304D] bg-[#121A2B]/70 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur">
-      {children}
+    <div className={["relative", className].join(" ")}>
+      <div className="h-px w-full bg-[linear-gradient(90deg,#ef4444,#f59e0b,#fde047,#22c55e,#38bdf8,#6366f1,#a855f7)] opacity-90" />
+      <div className="pointer-events-none absolute inset-x-0 -top-2 h-6 bg-[linear-gradient(90deg,rgba(239,68,68,0.25),rgba(245,158,11,0.25),rgba(253,224,71,0.22),rgba(34,197,94,0.22),rgba(56,189,248,0.22),rgba(99,102,241,0.22),rgba(168,85,247,0.22))] blur-xl" />
     </div>
   );
 }
@@ -37,6 +38,12 @@ export default function Layout() {
   const [authChecked, setAuthChecked] = useState(false);
   const [authError, setAuthError] = useState(null);
 
+  const apiOrigin = useMemo(() => {
+    const raw = import.meta.env?.VITE_API_URL;
+    if (!raw) return "";
+    return String(raw).replace(/\/+$/, "");
+  }, []);
+
   useEffect(() => {
     (async () => {
       setAuthError(null);
@@ -48,7 +55,7 @@ export default function Layout() {
         setAuthError(
           e?.response?.status
             ? `Auth check failed (HTTP ${e.response.status}).`
-            : "Auth check failed (network error). Your API might be down, or cookies aren’t being set."
+            : "Auth check failed (network error). Is the backend reachable?"
         );
       } finally {
         setAuthChecked(true);
@@ -69,43 +76,42 @@ export default function Layout() {
 
   if (!authChecked) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <ShellCard>
-          <div className="text-sm text-[#9FB0D0]">Loading</div>
-          <div className="mt-1 text-lg font-semibold text-[#EAF0FF]">Checking session…</div>
-        </ShellCard>
+      <div className="min-h-screen bg-[#050B1A] text-white flex items-center justify-center">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-6 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur">
+          <div className="text-sm text-slate-300">Loading</div>
+          <div className="mt-1 text-lg font-semibold">Checking session…</div>
+        </div>
       </div>
     );
   }
 
   if (!me) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="w-full max-w-md space-y-4">
-          <ShellCard>
-            <div className="text-sm text-[#9FB0D0]">Not logged in</div>
-            <div className="mt-1 text-lg font-semibold text-[#EAF0FF]">Please log in again</div>
-            {authError && <div className="mt-2 text-sm text-[#FFB4B4]">{authError}</div>}
+      <div className="min-h-screen bg-[#050B1A] text-white flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.06] p-6 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur space-y-4">
+          <div>
+            <div className="text-sm text-slate-300">Not logged in</div>
+            <div className="mt-1 text-lg font-semibold">Please log in again</div>
+            {authError && <div className="mt-2 text-sm text-red-200">{authError}</div>}
+          </div>
 
-            <div className="mt-5 flex gap-2">
-              <Link
-                to="/login"
-                className="inline-flex rounded-xl bg-[#EAF0FF] px-4 py-2 text-sm font-semibold text-[#0B0F1A] hover:opacity-90"
-              >
-                Go to login
-              </Link>
+          <div className="flex gap-2">
+            <Link
+              to="/login"
+              className="inline-flex rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/15 hover:bg-white/15"
+            >
+              Go to login
+            </Link>
 
-              {/* Keep this relative so it works on Railway too */}
-              <a
-                href="/me"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex rounded-xl border border-[#23304D] bg-transparent px-4 py-2 text-sm font-semibold text-[#EAF0FF] hover:bg-[#121A2B]"
-              >
-                Test /me
-              </a>
-            </div>
-          </ShellCard>
+            <a
+              href={apiOrigin ? `${apiOrigin}/me` : "/me"}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/10"
+            >
+              Test /me
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -114,15 +120,17 @@ export default function Layout() {
   const isAdmin = me?.role === "ADMIN";
 
   return (
-    <div className="min-h-screen text-[#EAF0FF]">
-      <header className="sticky top-0 z-10 border-b border-[#23304D] bg-[#0B0F1A]/75 backdrop-blur">
+    <div
+      className="min-h-screen text-white
+      bg-[radial-gradient(1000px_circle_at_15%_0%,rgba(59,130,246,0.20),transparent_55%),radial-gradient(900px_circle_at_85%_15%,rgba(236,72,153,0.16),transparent_55%),radial-gradient(900px_circle_at_50%_110%,rgba(34,197,94,0.12),transparent_60%),linear-gradient(180deg,#050B1A_0%,#020617_65%,#050B1A_100%)]"
+    >
+      <header className="sticky top-0 z-10 bg-[#050B1A]/60 backdrop-blur border-b border-white/10">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 lg:px-8">
           <div className="flex items-center gap-3">
-            <Link to="/dashboard" className="text-base font-semibold tracking-tight">
+            <Link to="/dashboard" className="text-base font-semibold tracking-tight text-white">
               PCT Cup
             </Link>
-
-            <span className="hidden rounded-full border border-[#23304D] bg-[#121A2B]/60 px-2 py-0.5 text-xs text-[#9FB0D0] sm:inline">
+            <span className="hidden rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-xs text-slate-200 sm:inline">
               {me.username}
             </span>
           </div>
@@ -132,44 +140,34 @@ export default function Layout() {
             <NavLink to="/calendar">Calendar</NavLink>
             <NavLink to="/leaderboard">Leaderboard</NavLink>
 
-            <span className="mx-1 hidden h-5 w-px bg-[#23304D] sm:block" />
-
+            <span className="mx-1 hidden h-5 w-px bg-white/10 sm:block" />
             <button
               onClick={logout}
               disabled={busy}
-              className="rounded-lg border border-[#23304D] bg-transparent px-3 py-1.5 text-sm font-medium text-[#EAF0FF] hover:bg-[#121A2B] disabled:opacity-50"
+              className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-sm font-semibold text-white hover:bg-white/10 disabled:opacity-50"
             >
               Logout
             </button>
           </nav>
         </div>
 
-        {/* Subtle rainbow accent line */}
-        <div
-          className="h-[2px] w-full opacity-80"
-          style={{
-            background:
-              "linear-gradient(90deg, #FF3B30, #FF9500, #FFCC00, #34C759, #007AFF, #5856D6, #AF52DE)",
-          }}
-        />
+        <RainbowRule />
       </header>
 
       <main className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-8">
         {me && !isAdmin && window.location.pathname.startsWith("/admin") ? (
-          <ShellCard>
-            <div className="text-sm text-[#9FB0D0]">Restricted</div>
-            <div className="mt-1 text-xl font-semibold text-[#EAF0FF]">
-              Admin pages aren’t available on this account.
-            </div>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-6 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur">
+            <div className="text-sm text-slate-300">Restricted</div>
+            <div className="mt-1 text-xl font-semibold">Admin pages aren’t available on this account.</div>
             <div className="mt-4">
               <Link
                 to="/dashboard"
-                className="inline-flex rounded-xl bg-[#EAF0FF] px-4 py-2 text-sm font-semibold text-[#0B0F1A] hover:opacity-90"
+                className="inline-flex rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/15 hover:bg-white/15"
               >
                 Back to Dashboard
               </Link>
             </div>
-          </ShellCard>
+          </div>
         ) : (
           <Outlet />
         )}

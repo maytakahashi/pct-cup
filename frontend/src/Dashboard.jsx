@@ -152,7 +152,7 @@ function CategoryCard({ c }) {
           <div className="mt-1 text-sm text-[#9FB0D0]">
             <span className="font-semibold text-[#EAF0FF]">{c.completed}</span> {unit} completed ·{" "}
             <span className="font-semibold italic text-[#EAF0FF]">
-              {c.required} {unit} required
+              {c.required} required
             </span>
           </div>
         </div>
