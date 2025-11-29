@@ -30,7 +30,11 @@ const isProd = process.env.NODE_ENV === "production";
 if (!isProd) {
   app.use(
     cors({
-      origin: ["http://localhost:5173", "http://localhost:5174"],
+      origin: [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "https://YOUR-VERCEL-URL.vercel.app"
+      ],
       credentials: true,
     })
   );
@@ -64,10 +68,12 @@ app.post("/auth/login", async (req, res) => {
     data: { tokenHash, userId: user.id, expiresAt },
   });
 
+  const isProd = process.env.NODE_ENV === "production";
+
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: isProd, // MUST be true on Railway (https)
+    sameSite: isProd ? "none" : "lax",
+    secure: isProd ? true : false,
     expires: expiresAt,
   });
 

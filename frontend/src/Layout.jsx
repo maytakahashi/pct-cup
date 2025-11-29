@@ -37,7 +37,7 @@ export default function Layout() {
         setAuthError(
           e?.response?.status
             ? `Auth check failed (HTTP ${e.response.status}).`
-            : "Auth check failed (network error). Is the backend running on :3001?"
+            : "Auth check failed (network error). Is the backend reachable?"
         );
       } finally {
         setAuthChecked(true);
@@ -85,7 +85,7 @@ export default function Layout() {
               Go to login
             </Link>
             <a
-              href="http://localhost:3001/me"
+              href={(import.meta.env.VITE_API_BASE_URL || "http://localhost:3001") + "/me"}
               target="_blank"
               rel="noreferrer"
               className="inline-flex rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-100"
