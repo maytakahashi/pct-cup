@@ -25,24 +25,25 @@ app.set("trust proxy", 1);
 
 const isProd = process.env.NODE_ENV === "production";
 
-// Configure CORS. Use `CORS_ORIGINS` env var (comma-separated) to override.
 const allowedOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(",").map((s) => s.trim())
+  ? process.env.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean)
   : ["http://localhost:5173", "http://localhost:5174"];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow requests with no origin (like mobile apps or curl)
+      // allow requests with no origin (like curl, same-origin assets sometimes)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        return callback(null, true);
-      }
-      return callback(new Error("CORS not allowed"));
+
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+
+      // ✅ IMPORTANT: don't throw (that causes 500 HTML responses)
+      return callback(null, false);
     },
     credentials: true,
   })
 );
+
 
 // ---------- AUTH ----------
 app.post("/auth/login", async (req, res) => {
