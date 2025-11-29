@@ -66,9 +66,9 @@ export default function Login() {
     <div className="relative min-h-screen overflow-hidden bg-[#0B0F1A] text-[#EAF0FF]">
       {/* background */}
       <GradientOrb className="left-[-120px] top-[-180px] h-[420px] w-[420px]" />
-      <GradientOrb className="right-[-160px] bottom-[-200px] h-[520px] w-[520px] opacity-40" />
+      <GradientOrb className="-right-40 bottom-[-200px] h-[520px] w-[520px] opacity-40" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(18,26,43,0.85),rgba(11,15,26,1)_55%)]" />
-      <div className="absolute inset-0 opacity-[0.08] [background-image:linear-gradient(to_right,#EAF0FF_1px,transparent_1px),linear-gradient(to_bottom,#EAF0FF_1px,transparent_1px)] [background-size:56px_56px]" />
+      <div className="absolute inset-0 opacity-[0.08] bg-[linear-gradient(to_right,#EAF0FF_1px,transparent_1px),linear-gradient(to_bottom,#EAF0FF_1px,transparent_1px)] bg-size-[56px_56px]" />
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">

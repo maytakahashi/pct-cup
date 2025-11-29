@@ -2,6 +2,31 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import { createPortal } from "react-dom";
 
+function Card({ children, className = "" }) {
+  return (
+    <div
+      className={[
+        "rounded-2xl border border-[#23304D] bg-[#121A2B]/70 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur",
+        className,
+      ].join(" ")}
+    >
+      {children}
+    </div>
+  );
+}
+
+function RainbowRule() {
+  return (
+    <div
+      className="h-0.5 w-full opacity-80"
+      style={{
+        background:
+          "linear-gradient(90deg, #FF3B30, #FF9500, #FFCC00, #34C759, #007AFF, #5856D6, #AF52DE)",
+      }}
+    />
+  );
+}
+
 function InfoTip({ text }) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState(null);
@@ -10,19 +35,26 @@ function InfoTip({ text }) {
     <>
       <button
         type="button"
-        className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-zinc-300 bg-white text-xs font-bold text-zinc-700 hover:bg-zinc-50"
-        onMouseEnter={(e) => { setRect(e.currentTarget.getBoundingClientRect()); setOpen(true); }}
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#23304D] bg-[#0B0F1A] text-xs font-bold text-[#EAF0FF] hover:bg-[#121A2B]"
+        onMouseEnter={(e) => {
+          setRect(e.currentTarget.getBoundingClientRect());
+          setOpen(true);
+        }}
         onMouseLeave={() => setOpen(false)}
-        onClick={(e) => { setRect(e.currentTarget.getBoundingClientRect()); setOpen((v) => !v); }}
+        onClick={(e) => {
+          setRect(e.currentTarget.getBoundingClientRect());
+          setOpen((v) => !v);
+        }}
         aria-label="Info"
       >
         i
       </button>
 
-      {open && rect &&
+      {open &&
+        rect &&
         createPortal(
           <div
-            className="rounded-xl border border-zinc-200 bg-white p-3 text-sm text-zinc-900 shadow-xl"
+            className="rounded-xl border border-[#23304D] bg-[#0B0F1A] p-3 text-sm text-[#EAF0FF] shadow-[0_18px_50px_rgba(0,0,0,0.45)]"
             style={{
               position: "fixed",
               zIndex: 9999,
@@ -31,12 +63,11 @@ function InfoTip({ text }) {
               width: 300,
             }}
           >
-            <div className="text-xs font-semibold text-zinc-500">Note</div>
+            <div className="text-xs font-semibold text-[#9FB0D0]">Note</div>
             <div className="mt-1">{text}</div>
           </div>,
           document.body
-        )
-      }
+        )}
     </>
   );
 }
@@ -53,42 +84,43 @@ function formatCheckpoint(cp) {
   return end ? `Due by ${label} (${end})` : label;
 }
 
-function ProgressBar({ value }) {
+function GradientProgress({ value }) {
   const pct = Math.round(clamp01(value) * 100);
   return (
-    <div className="h-2 w-full rounded-full bg-zinc-100">
-      <div className="h-2 rounded-full bg-green-900" style={{ width: `${pct}%` }} />
+    <div className="h-[18px] w-full rounded-full border border-[#23304D] bg-[#0B0F1A] p-0.5">
+      <div
+        className="h-3.5 rounded-full"
+        style={{
+          width: `${pct}%`,
+          background:
+            "linear-gradient(90deg, #FF3B30, #FF9500, #FFCC00, #34C759, #007AFF, #5856D6, #AF52DE)",
+        }}
+      />
     </div>
   );
 }
 
 function Ribbon() {
-  const colors = ["#DE6561", "#FAB86D", "#FFDE76", "#9ECC80", "#7DA9B4", "#709CF2", "#8978C7"];
   return (
-    <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-      <div className="flex h-2 w-full">
-        {colors.map((c) => (
-          <div key={c} className="h-3 flex-1" style={{ backgroundColor: c }} />
-        ))}
-      </div>
-
-      <div className="p-4">
-        <div className="text-2xl font-semibold">Next Checkpoint Requirements</div>
-        <div className="mt-1 text-sm text-zinc-600">
-          Review your team&apos;s progress made towards the next checkpoint.
+    <Card>
+      <div className="p-5">
+        <div className="text-2xl font-extrabold text-[#EAF0FF]">Next Checkpoint Requirements</div>
+        <div className="mt-1 text-sm text-[#9FB0D0]">
+          Review your progress and your team’s progress toward the next checkpoint.
         </div>
       </div>
-    </div>
+      <RainbowRule />
+    </Card>
   );
 }
 
 function Badge({ met }) {
   return met ? (
-    <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
+    <span className="shrink-0 rounded-full border border-[#2d5a3b] bg-[#0f2418] px-2 py-0.5 text-xs font-semibold text-[#9ff2bf]">
       Completed
     </span>
   ) : (
-    <span className="shrink-0 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-800">
+    <span className="shrink-0 rounded-full border border-[#5a4a1d] bg-[#231c0b] px-2 py-0.5 text-xs font-semibold text-[#ffd08a]">
       In Progress
     </span>
   );
@@ -106,17 +138,22 @@ function CategoryCard({ c }) {
   const remainingOpps = c.remainingOpportunities ?? 0;
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-1">
+    <Card className="p-4">
+      <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full" style={{ background: c.color || "#111827" }} />
-            <div className="truncate text-base font-semibold text-zinc-900">{c.categoryName}</div>
+            <span
+              className="h-3 w-3 rounded-full border border-[#23304D]"
+              style={{ background: c.color || "#EAF0FF" }}
+            />
+            <div className="truncate text-base font-semibold text-[#EAF0FF]">{c.categoryName}</div>
           </div>
 
-          <div className="mt-1 text-sm text-zinc-600">
-            <span className="font-semibold text-zinc-900">{c.completed}</span> {unit} completed ·{" "}
-            <span className="font-semibold italic text-zinc-900">{c.required} {unit} required</span>
+          <div className="mt-1 text-sm text-[#9FB0D0]">
+            <span className="font-semibold text-[#EAF0FF]">{c.completed}</span> {unit} completed ·{" "}
+            <span className="font-semibold italic text-[#EAF0FF]">
+              {c.required} {unit} required
+            </span>
           </div>
         </div>
 
@@ -124,41 +161,40 @@ function CategoryCard({ c }) {
       </div>
 
       <div className="mt-3 space-y-2">
-        <ProgressBar value={ratio} />
+        <GradientProgress value={ratio} />
 
         {!met ? (
-          <div className="flex items-center justify-between text-sm text-zinc-600">
+          <div className="flex items-center justify-between text-sm text-[#9FB0D0]">
             <span>
-              <span className="font-semibold text-zinc-900">{remainingOpps}</span> remaining opportunities till checkpoint
+              <span className="font-semibold text-[#EAF0FF]">{remainingOpps}</span> remaining opportunities till checkpoint
             </span>
           </div>
         ) : (
-          <div className="text-sm text-emerald-800">Nice — you’ve met this category for this checkpoint.</div>
+          <div className="text-sm text-[#9ff2bf]">Nice — you’ve met this category for this checkpoint.</div>
         )}
       </div>
-    </div>
+    </Card>
   );
 }
-
 
 function SegmentedTabs({ tab, setTab, meCount, teamCount }) {
   return (
     <div>
-      <div className="flex w-full rounded-xl bg-zinc-100 p-1">
+      <div className="flex w-full rounded-xl border border-[#23304D] bg-[#0B0F1A] p-1">
         <button
           type="button"
           onClick={() => setTab("ME")}
           className={[
-            "flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition",
+            "flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition border",
             tab === "ME"
-              ? "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200"
-              : "text-zinc-700 hover:text-zinc-900",
+              ? "bg-[#121A2B] text-[#EAF0FF] border-[#23304D]"
+              : "text-[#9FB0D0] border-transparent hover:border-[#23304D] hover:bg-[#121A2B] hover:text-[#EAF0FF]",
           ].join(" ")}
         >
           <span className="mr-2">🙋‍♀️</span>
           Me
           {Number.isFinite(meCount) && (
-            <span className="ml-2 rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
+            <span className="ml-2 rounded-full border border-[#23304D] bg-[#121A2B]/60 px-2 py-0.5 text-xs font-semibold text-[#9FB0D0]">
               {meCount} categories
             </span>
           )}
@@ -168,24 +204,24 @@ function SegmentedTabs({ tab, setTab, meCount, teamCount }) {
           type="button"
           onClick={() => setTab("TEAM")}
           className={[
-            "flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition",
+            "flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition border",
             tab === "TEAM"
-              ? "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200"
-              : "text-zinc-700 hover:text-zinc-900",
+              ? "bg-[#121A2B] text-[#EAF0FF] border-[#23304D]"
+              : "text-[#9FB0D0] border-transparent hover:border-[#23304D] hover:bg-[#121A2B] hover:text-[#EAF0FF]",
           ].join(" ")}
         >
           <span className="mr-2">👥</span>
           Team
           {Number.isFinite(teamCount) && (
-            <span className="ml-2 rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
+            <span className="ml-2 rounded-full border border-[#23304D] bg-[#121A2B]/60 px-2 py-0.5 text-xs font-semibold text-[#9FB0D0]">
               {teamCount} bros
             </span>
           )}
         </button>
       </div>
 
-      <div className="mt-2 text-xs text-zinc-600">
-        Tip: switch to <span className="font-semibold text-zinc-900">Team</span> to see everyone’s totals at a glance.
+      <div className="mt-2 text-xs text-[#9FB0D0]">
+        Tip: switch to <span className="font-semibold text-[#EAF0FF]">Team</span> to see everyone’s totals at a glance.
       </div>
     </div>
   );
@@ -202,15 +238,13 @@ const CATEGORY_LABELS = {
   CASUAL: "CASUAL",
 };
 
-// For team table pills: handle unknown required cleanly
 function getPillStyle({ required, completed }) {
   const reqKnown = Number.isFinite(required);
   const compKnown = Number.isFinite(completed);
 
-  // Unknown data => neutral gray
   if (!reqKnown || !compKnown) {
     return {
-      cls: "border-zinc-200 bg-zinc-50 text-zinc-700",
+      cls: "border-[#23304D] bg-[#0B0F1A] text-[#9FB0D0]",
       label: "Unknown",
       met: false,
       text: `${compKnown ? completed : 0}/—`,
@@ -219,7 +253,9 @@ function getPillStyle({ required, completed }) {
 
   const met = required === 0 ? true : completed >= required;
   return {
-    cls: met ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-orange-200 bg-orange-50 text-orange-800",
+    cls: met
+      ? "border-[#2d5a3b] bg-[#0f2418] text-[#9ff2bf]"
+      : "border-[#5a4a1d] bg-[#231c0b] text-[#ffd08a]",
     label: met ? "Complete" : "In Progress",
     met,
     text: `${completed}/${required}`,
@@ -268,14 +304,12 @@ export default function Dashboard() {
 
   const teamCount = teamDash?.members ? teamDash.members.length : undefined;
 
-  // Normalize TEAM rows so categories always render in the same order.
   const teamRows = useMemo(() => {
     const members = teamDash?.members ?? [];
     return members.map((m) => {
       const map = new Map((m.perCategory ?? []).map((pc) => [pc.categoryKey, pc]));
       const ordered = CATEGORY_ORDER.map((k) => {
         const pc = map.get(k);
-        // IMPORTANT: do NOT default required to 0 anymore (that causes green lies)
         return (
           pc || {
             categoryKey: k,
@@ -289,7 +323,6 @@ export default function Dashboard() {
     });
   }, [teamDash]);
 
-  // Team summary: how many bros met ALL category requirements (only counting categories where required is known).
   const teamMetSummary = useMemo(() => {
     const members = teamRows ?? [];
     const total = members.length;
@@ -299,7 +332,7 @@ export default function Dashboard() {
       const pcs = m.perCategoryOrdered ?? [];
 
       const allKnown = pcs.every((pc) => Number.isFinite(pc.required) && Number.isFinite(pc.completed));
-      if (!allKnown) continue; // don’t “credit” anyone until we actually have requirement data
+      if (!allKnown) continue;
 
       const okAll = pcs.every((pc) => {
         const required = pc.required;
@@ -310,41 +343,44 @@ export default function Dashboard() {
       if (okAll) met += 1;
     }
 
-    return { met, total, hasUnknown: members.some((m) => (m.perCategoryOrdered ?? []).some((pc) => !Number.isFinite(pc.required))) };
+    return {
+      met,
+      total,
+      hasUnknown: members.some((m) => (m.perCategoryOrdered ?? []).some((pc) => !Number.isFinite(pc.required))),
+    };
   }, [teamRows]);
 
   return (
     <div className="space-y-6">
       <Ribbon />
 
-      {/* One container around toggle + content */}
-      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-        <div className="border-b border-zinc-200 bg-white p-4">
+      <Card className="overflow-hidden">
+        <div className="border-b border-[#23304D] p-4">
           <SegmentedTabs tab={tab} setTab={setTab} meCount={meDash?.categories?.length} teamCount={teamCount} />
         </div>
 
         <div className="p-4">
           {err && (
-            <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="mb-3 rounded-xl border border-[#5b1b1b] bg-[#2a1010] px-4 py-3 text-sm text-[#FFB4B4]">
               {err}
             </div>
           )}
-          {loading && <div className="text-sm text-zinc-600">Loading…</div>}
+          {loading && <div className="text-sm text-[#9FB0D0]">Loading…</div>}
 
           {!loading && tab === "ME" && meDash && (
             <>
-              <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-                <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
+              <Card className="p-4">
+                <h1 className="text-3xl font-extrabold tracking-tight text-[#EAF0FF]">
                   Hi {meDash?.user?.firstName ?? "there"}!
                 </h1>
 
-                <div className="mt-2 text-2xl font-semibold text-zinc-900">
+                <div className="mt-2 text-xl font-semibold text-[#EAF0FF]">
                   Categories Complete: {meSummary.met}/{meSummary.total}
-                  <div className="mt-1 flex items-center gap-2 text-sm text-zinc-600">
+                  <div className="mt-1 flex items-center gap-2 text-sm text-[#9FB0D0]">
                     <span>{cpText}</span>
                   </div>
                 </div>
-              </div>
+              </Card>
 
               <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {meDash.categories.map((c) => (
@@ -356,27 +392,32 @@ export default function Dashboard() {
 
           {!loading && tab === "TEAM" && teamDash && (
             <>
-              <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-                <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">Team {teamDash.teamId} Stats</h1>
+              <Card className="p-4">
+                <h1 className="text-3xl font-extrabold tracking-tight text-[#EAF0FF]">
+                  Team {teamDash.teamId} Stats
+                </h1>
 
-                <div className="mt-2 text-2xl font-semibold text-zinc-900 flex items-center-safe gap-2">
-                  <span>Members Done: {teamMetSummary.met}/{teamMetSummary.total}</span>
+                <div className="mt-2 flex items-center gap-2 text-xl font-semibold text-[#EAF0FF]">
+                  <span>
+                    Members Done: {teamMetSummary.met}/{teamMetSummary.total}
+                  </span>
                   <InfoTip text="Seniors have adjusted requirements." />
                 </div>
-                <div className="mt-1 flex font-semibold items-center gap-2 text-sm text-zinc-600">
-                    <span>{cpText}</span>
+
+                <div className="mt-1 flex items-center gap-2 text-sm text-[#9FB0D0]">
+                  <span>{cpText}</span>
                 </div>
 
                 {teamMetSummary.hasUnknown && (
-                  <div className="mt-1 text-sm text-zinc-600">
+                  <div className="mt-1 text-sm text-[#9FB0D0]">
                     Some requirements are still loading from the backend (shown as <span className="font-semibold">—</span>).
                   </div>
                 )}
-              </div>
+              </Card>
 
-              <div className="mt-4 overflow-auto rounded-2xl border border-zinc-200">
+              <div className="mt-4 overflow-auto rounded-2xl border border-[#23304D] bg-[#121A2B]/70">
                 <table className="min-w-[860px] w-full text-sm">
-                  <thead className="bg-zinc-50 text-zinc-600">
+                  <thead className="bg-[#0B0F1A] text-[#9FB0D0]">
                     <tr className="text-left">
                       <th className="px-4 py-3">Member</th>
                       {CATEGORY_ORDER.map((k) => (
@@ -389,8 +430,8 @@ export default function Dashboard() {
 
                   <tbody>
                     {teamRows.map((m) => (
-                      <tr key={m.username} className="border-t border-zinc-200">
-                        <td className="px-4 py-3 font-medium text-zinc-900">{m.name}</td>
+                      <tr key={m.username} className="border-t border-[#23304D]">
+                        <td className="px-4 py-3 font-semibold text-[#EAF0FF]">{m.name}</td>
 
                         {m.perCategoryOrdered.map((pc) => {
                           const completed = pc.completed;
@@ -399,7 +440,12 @@ export default function Dashboard() {
 
                           return (
                             <td key={pc.categoryKey} className="px-4 py-3">
-                              <span className={`inline-flex items-center gap-2 rounded-full border px-2 py-0.5 text-xs font-semibold ${pill.cls}`}>
+                              <span
+                                className={[
+                                  "inline-flex items-center gap-2 rounded-full border px-2 py-0.5 text-xs font-semibold",
+                                  pill.cls,
+                                ].join(" ")}
+                              >
                                 <span>{pill.text}</span>
                                 <span className="font-medium opacity-80">{pill.label}</span>
                               </span>
@@ -414,7 +460,7 @@ export default function Dashboard() {
             </>
           )}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

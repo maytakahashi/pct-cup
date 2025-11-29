@@ -1,12 +1,30 @@
 @import "tailwindcss";
 
-/* Remove Vite template defaults that break layout + contrast */
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
 }
 
+:root {
+  color-scheme: dark;
+}
+
+/* Global dark navy background */
 body {
   margin: 0;
-  background: #fafafa; /* zinc-50-ish */
-  color: #18181b;      /* zinc-900-ish */
+  color: #eaf0ff;
+  background-color: #0b0f1a;
+
+  /* Subtle depth (no “white page” ever) */
+  background-image:
+    radial-gradient(1200px 800px at 18% 12%, rgba(0, 122, 255, 0.16), transparent 55%),
+    radial-gradient(900px 700px at 78% 22%, rgba(175, 82, 222, 0.14), transparent 55%),
+    radial-gradient(900px 700px at 40% 90%, rgba(52, 199, 89, 0.10), transparent 55%);
+  background-repeat: no-repeat;
+}
+
+/* Make default text selection look good on dark */
+::selection {
+  background: rgba(0, 122, 255, 0.35);
 }

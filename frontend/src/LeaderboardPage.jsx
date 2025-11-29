@@ -5,11 +5,26 @@ function pct(n) {
   return `${Math.round((n || 0) * 100)}%`;
 }
 
-function ProgressBar({ value }) {
+function GradientProgress({ value }) {
   const v = Math.max(0, Math.min(1, value || 0));
   return (
-    <div className="h-2 w-full rounded-full bg-zinc-100">
-      <div className="h-2 rounded-full bg-zinc-900" style={{ width: `${Math.round(v * 100)}%` }} />
+    <div className="h-[18px] w-full rounded-full border border-[#23304D] bg-[#0B0F1A] p-[2px]">
+      <div
+        className="h-[14px] rounded-full"
+        style={{
+          width: `${Math.round(v * 100)}%`,
+          background:
+            "linear-gradient(90deg, #FF3B30, #FF9500, #FFCC00, #34C759, #007AFF, #5856D6, #AF52DE)",
+        }}
+      />
+    </div>
+  );
+}
+
+function Card({ children }) {
+  return (
+    <div className="rounded-2xl border border-[#23304D] bg-[#121A2B]/70 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur">
+      {children}
     </div>
   );
 }
@@ -24,11 +39,7 @@ export default function LeaderboardPage() {
     setErr(null);
     setLoading(true);
     try {
-      const [meRes, lbRes] = await Promise.all([
-        api.get("/me"),
-        api.get("/leaderboard/teams"),
-      ]);
-
+      const [meRes, lbRes] = await Promise.all([api.get("/me"), api.get("/leaderboard/teams")]);
       setMyTeamId(meRes.data?.teamId ?? null);
       setData(lbRes.data);
     } catch (e) {
@@ -46,73 +57,103 @@ export default function LeaderboardPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-        <div className="text-xl font-semibold">Teams — who’s hitting the next checkpoint</div>
-        {data?.checkpoint?.endDate && (
-          <div className="mt-1 text-sm text-zinc-600">
-            Next checkpoint ends {new Date(data.checkpoint.endDate).toLocaleDateString()}
+      <Card>
+        <div className="p-5">
+          <div className="text-xl font-semibold text-[#EAF0FF]">
+            Teams — who’s hitting the next checkpoint
           </div>
-        )}
-      </div>
+          {data?.checkpoint?.endDate && (
+            <div className="mt-1 text-sm text-[#9FB0D0]">
+              Next checkpoint ends{" "}
+              {new Date(data.checkpoint.endDate).toLocaleDateString(undefined, {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })}
+            </div>
+          )}
+        </div>
+        <div
+          className="h-[2px] w-full opacity-80"
+          style={{
+            background:
+              "linear-gradient(90deg, #FF3B30, #FF9500, #FFCC00, #34C759, #007AFF, #5856D6, #AF52DE)",
+          }}
+        />
+        <div className="px-5 py-4 text-sm text-[#9FB0D0]">
+          Ranked by how many bros in each team have met <span className="font-semibold text-[#EAF0FF]">all</span>{" "}
+          category requirements for the next checkpoint.
+        </div>
+      </Card>
 
       {err && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="rounded-xl border border-[#5b1b1b] bg-[#2a1010] px-4 py-3 text-sm text-[#FFB4B4]">
           {err}
         </div>
       )}
-      {loading && <div className="text-sm text-zinc-600">Loading…</div>}
+
+      {loading && <div className="text-sm text-[#9FB0D0]">Loading…</div>}
 
       {!loading && (
-        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-          <div className="border-b border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
-            Ranked by how many bros in each team have met <span className="font-medium">all</span> category requirements
-            for the next checkpoint.
-          </div>
+        <div className="space-y-3">
+          {rows.map((t, idx) => {
+            const isMine = myTeamId != null && Number(t.teamId) === Number(myTeamId);
 
-          <div className="divide-y divide-zinc-200">
-            {rows.map((t, idx) => {
-              const isMine = myTeamId != null && Number(t.teamId) === Number(myTeamId);
+            return (
+              <div
+                key={t.teamId}
+                className={[
+                  "rounded-2xl border border-[#23304D] bg-[#121A2B]/70 px-4 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.25)] backdrop-blur",
+                  isMine ? "ring-1 ring-[#34C759]/30" : "",
+                ].join(" ")}
+              >
+                <div className="flex items-center justify-between gap-4">
+                  {/* Left: rank + team */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-12 w-12 shrink-0 rounded-2xl border border-[#23304D] bg-[#0B0F1A] flex items-center justify-center">
+                      <div className="text-lg font-extrabold text-[#EAF0FF]">{idx + 1}</div>
+                    </div>
 
-              return (
-                <div
-                  key={t.teamId}
-                  className={[
-                    "px-4 py-4",
-                    isMine ? "bg-emerald-50/45" : "",
-                  ].join(" ")}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 text-sm font-semibold text-zinc-500">#{idx + 1}</div>
+                    <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <div className="text-base font-semibold text-zinc-900">Team {t.teamId}</div>
+                        <div className="truncate text-lg font-extrabold text-[#EAF0FF]">
+                          Team {t.teamId}
+                        </div>
                         {isMine && (
-                          <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                          <span className="inline-flex items-center rounded-full border border-[#2d5a3b] bg-[#0f2418] px-2 py-0.5 text-xs font-semibold text-[#9ff2bf]">
                             Your team
                           </span>
                         )}
                       </div>
-                    </div>
-
-                    <div className="text-sm text-zinc-700">
-                      <span className="font-semibold text-zinc-900">{t.metCount}</span> / {t.teamSize} met
-                      <span className="ml-2 text-zinc-500">({pct(t.pct)})</span>
+                      <div className="mt-0.5 text-xs text-[#9FB0D0]">
+                        Met requirements:{" "}
+                        <span className="font-semibold text-[#EAF0FF]">
+                          {t.metCount}/{t.teamSize}
+                        </span>{" "}
+                        <span className="opacity-80">•</span> {pct(t.pct)}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="mt-2">
-                    <ProgressBar value={t.pct} />
+                  {/* Right: big percent number like the SVG */}
+                  <div className="shrink-0 text-right">
+                    <div className="text-2xl font-black text-[#EAF0FF]">{pct(t.pct)}</div>
+                    <div className="text-xs text-[#9FB0D0]">team completion</div>
                   </div>
                 </div>
-              );
-            })}
 
-            {!rows.length && (
-              <div className="px-4 py-6 text-sm text-zinc-600">
-                No teams found yet (missing team assignments).
+                <div className="mt-3">
+                  <GradientProgress value={t.pct} />
+                </div>
               </div>
-            )}
-          </div>
+            );
+          })}
+
+          {!rows.length && (
+            <div className="rounded-2xl border border-[#23304D] bg-[#121A2B]/70 px-5 py-6 text-sm text-[#9FB0D0]">
+              No teams found yet (missing team assignments).
+            </div>
+          )}
         </div>
       )}
     </div>

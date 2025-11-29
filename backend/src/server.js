@@ -25,20 +25,26 @@ app.set("trust proxy", 1);
 
 const isProd = process.env.NODE_ENV === "production";
 
-// CORS should only be needed in dev when you run Vite separately.
-// In prod we want same-origin (backend serves the frontend) so cookies are painless.
-if (!isProd) {
-  app.use(
-    cors({
-      origin: [
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "https://YOUR-VERCEL-URL.vercel.app"
-      ],
-      credentials: true,
-    })
-  );
-}
+// Configure CORS. Use `CORS_ORIGINS` env var (comma-separated) to override.
+// Defaults include the typical Vite dev origins so local dev requests (with credentials)
+// are allowed. This explicitly enables preflight responses with the proper headers.
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(",").map((s) => s.trim())
+  : ["http://localhost:5173", "http://localhost:5174"];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        return callback(null, true);
+      }
+      return callback(new Error("CORS not allowed"));
+    },
+    credentials: true,
+  })
+);
 
 // ---------- AUTH ----------
 app.post("/auth/login", async (req, res) => {

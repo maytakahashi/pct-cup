@@ -7,7 +7,7 @@ import Layout from "./Layout";
 import Login from "./Login";
 
 import Dashboard from "./Dashboard";
-import SchedulePage from "./SchedulePage";
+import Schedule from "./Schedule";
 import LeaderboardPage from "./LeaderboardPage";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -24,7 +24,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route path="/" element={<Layout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="calendar" element={<SchedulePage />} />
+          <Route path="calendar" element={<Schedule />} />
           <Route path="leaderboard" element={<LeaderboardPage />} />
         </Route>
 
