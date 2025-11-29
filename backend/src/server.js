@@ -26,8 +26,6 @@ app.set("trust proxy", 1);
 const isProd = process.env.NODE_ENV === "production";
 
 // Configure CORS. Use `CORS_ORIGINS` env var (comma-separated) to override.
-// Defaults include the typical Vite dev origins so local dev requests (with credentials)
-// are allowed. This explicitly enables preflight responses with the proper headers.
 const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(",").map((s) => s.trim())
   : ["http://localhost:5173", "http://localhost:5174"];
@@ -74,8 +72,6 @@ app.post("/auth/login", async (req, res) => {
     data: { tokenHash, userId: user.id, expiresAt },
   });
 
-  const isProd = process.env.NODE_ENV === "production";
-
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: isProd ? "none" : "lax",
@@ -91,11 +87,14 @@ app.post("/auth/logout", requireUser, async (req, res) => {
   if (token) {
     await prisma.session.deleteMany({ where: { tokenHash: sha256(token) } });
   }
+
+  // IMPORTANT: clear with SAME settings as set-cookie (esp sameSite/secure in prod)
   res.clearCookie(COOKIE_NAME, {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: isProd ? "none" : "lax",
     secure: isProd,
   });
+
   res.json({ ok: true });
 });
 
@@ -216,7 +215,6 @@ async function resolveNextCheckpoint() {
   });
   if (next) return next;
 
-  // fallback: last checkpoint if all are past
   const last = await prisma.checkpoint.findFirst({
     orderBy: { number: "desc" },
   });
@@ -750,8 +748,6 @@ function resolveBrosDist() {
     path.resolve(process.cwd(), "..", "frontend", "dist"),
     // if process runs from repo root
     path.resolve(process.cwd(), "frontend", "dist"),
-    // if someone moved frontend inside backend/
-    path.resolve(process.cwd(), "frontend", "dist"),
     // fallback relative to this file (backend/src)
     path.resolve(__dirname, "..", "..", "frontend", "dist"),
   ];
@@ -764,13 +760,17 @@ function resolveBrosDist() {
 }
 
 const brosDist = resolveBrosDist();
+
 if (isProd && brosDist) {
-  app.use(express.static(brosDist));
-  // SPA fallback (Express 5-safe) - don't override API routes
-  app.get(/^(?!\/(auth|me|dashboard|schedule|leaderboard|admin)\b).*/, (req, res) => {
+  console.log("PROD: serving frontend from:", brosDist);
+
+  // ✅ IMPORTANT: don't serve index.html automatically from static
+  app.use(express.static(brosDist, { index: false }));
+
+  // ✅ SPA fallback: exclude API routes AND /assets so CSS/JS never becomes HTML
+  app.get(/^(?!\/(assets|auth|me|dashboard|schedule|leaderboard|admin)\b).*/, (req, res) => {
     res.sendFile(path.join(brosDist, "index.html"));
   });
-
 } else if (isProd) {
   console.warn("PROD: brosDist not found; frontend will not be served.");
 }

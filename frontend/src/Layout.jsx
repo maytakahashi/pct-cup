@@ -77,7 +77,7 @@ export default function Layout() {
   if (!authChecked) {
     return (
       <div className="min-h-screen bg-[#050B1A] text-white flex items-center justify-center">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-6 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur">
+        <div className="rounded-2xl border border-white/10 bg-white/6 p-6 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur">
           <div className="text-sm text-slate-300">Loading</div>
           <div className="mt-1 text-lg font-semibold">Checking session…</div>
         </div>
@@ -88,7 +88,7 @@ export default function Layout() {
   if (!me) {
     return (
       <div className="min-h-screen bg-[#050B1A] text-white flex items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.06] p-6 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur space-y-4">
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/6 p-6 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur space-y-4">
           <div>
             <div className="text-sm text-slate-300">Not logged in</div>
             <div className="mt-1 text-lg font-semibold">Please log in again</div>
@@ -107,7 +107,7 @@ export default function Layout() {
               href={apiOrigin ? `${apiOrigin}/me` : "/me"}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/10"
+              className="inline-flex rounded-xl border border-white/15 bg-white/4 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/10"
             >
               Test /me
             </a>
@@ -144,7 +144,7 @@ export default function Layout() {
             <button
               onClick={logout}
               disabled={busy}
-              className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-sm font-semibold text-white hover:bg-white/10 disabled:opacity-50"
+              className="rounded-xl border border-white/15 bg-white/4 px-3 py-1.5 text-sm font-semibold text-white hover:bg-white/10 disabled:opacity-50"
             >
               Logout
             </button>
@@ -156,7 +156,7 @@ export default function Layout() {
 
       <main className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-8">
         {me && !isAdmin && window.location.pathname.startsWith("/admin") ? (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-6 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur">
+          <div className="rounded-2xl border border-white/10 bg-white/6 p-6 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur">
             <div className="text-sm text-slate-300">Restricted</div>
             <div className="mt-1 text-xl font-semibold">Admin pages aren’t available on this account.</div>
             <div className="mt-4">

@@ -23,7 +23,7 @@ function Surface({ className = "", children }) {
   return (
     <div
       className={[
-        "rounded-2xl border border-white/10 bg-white/[0.06] shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur",
+        "rounded-2xl border border-white/10 bg-white/6 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur",
         className,
       ].join(" ")}
     >
@@ -128,7 +128,7 @@ export default function LeaderboardPage() {
               <div
                 key={t.teamId}
                 className={[
-                  "relative overflow-hidden rounded-2xl border bg-white/[0.05] shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur",
+                  "relative overflow-hidden rounded-2xl border bg-white/5 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur",
                   isMine ? "border-emerald-300/30" : "border-white/10",
                   isMine ? "ring-1 ring-emerald-400/20" : "",
                 ].join(" ")}
@@ -187,7 +187,7 @@ export default function LeaderboardPage() {
           })}
 
           {!rows.length && (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-6 text-sm text-slate-300">
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-6 text-sm text-slate-300">
               No teams found yet (missing team assignments).
             </div>
           )}
