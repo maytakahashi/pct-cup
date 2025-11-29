@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
+import PageHeader from "./components/PageHeader";
 
 function Card({ children, className = "" }) {
   return (
@@ -174,40 +175,32 @@ export default function Schedule() {
 
   return (
     <div className="space-y-4">
-      <Card className="overflow-hidden">
-        <div className="p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="text-xl font-semibold text-[#EAF0FF]">
-                Schedule of Events — {formatMonthYear(month)}
-              </div>
-              <div className="mt-1 text-sm text-[#9FB0D0]">Click/tap to open the agenda for any day.</div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={prevMonth}
-                className="rounded-xl border border-[#23304D] bg-transparent px-3 py-2 text-sm font-semibold text-[#EAF0FF] hover:bg-[#121A2B]"
-              >
-                ←
-              </button>
-              <button
-                onClick={jumpToday}
-                className="rounded-xl border border-[#23304D] bg-transparent px-3 py-2 text-sm font-semibold text-[#EAF0FF] hover:bg-[#121A2B]"
-              >
-                Today
-              </button>
-              <button
-                onClick={nextMonth}
-                className="rounded-xl border border-[#23304D] bg-transparent px-3 py-2 text-sm font-semibold text-[#EAF0FF] hover:bg-[#121A2B]"
-              >
-                →
-              </button>
-            </div>
+      <PageHeader
+        title={`Schedule of Events — ${formatMonthYear(month)}`}
+        subtitle="Click/tap to open the agenda for any day."
+        right={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={prevMonth}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/90 hover:bg-white/10"
+            >
+              ←
+            </button>
+            <button
+              onClick={jumpToday}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/90 hover:bg-white/10"
+            >
+              Today
+            </button>
+            <button
+              onClick={nextMonth}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/90 hover:bg-white/10"
+            >
+              →
+            </button>
           </div>
-        </div>
-        <RainbowRule />
-      </Card>
+        }
+      />
 
       {err && (
         <div className="rounded-xl border border-[#5b1b1b] bg-[#2a1010] px-4 py-3 text-sm text-[#FFB4B4]">

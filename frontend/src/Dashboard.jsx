@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import { createPortal } from "react-dom";
+import PageHeader from "./components/PageHeader";
 
 function Card({ children, className = "" }) {
   return (
@@ -97,20 +98,6 @@ function GradientProgress({ value }) {
         }}
       />
     </div>
-  );
-}
-
-function Ribbon() {
-  return (
-    <Card>
-      <div className="p-5">
-        <div className="text-2xl font-extrabold text-[#EAF0FF]">Next Checkpoint Requirements</div>
-        <div className="mt-1 text-sm text-[#9FB0D0]">
-          Review your progress and your team’s progress toward the next checkpoint.
-        </div>
-      </div>
-      <RainbowRule />
-    </Card>
   );
 }
 
@@ -352,7 +339,11 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <Ribbon />
+      <PageHeader
+        title="Next Checkpoint Requirements"
+        subtitle="Review your progress and your team’s progress toward the next checkpoint."
+      />
+
 
       <Card className="overflow-hidden">
         <div className="border-b border-[#23304D] p-4">

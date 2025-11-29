@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
+import PageHeader from "./components/PageHeader";
 
 function pct(n) {
   return `${Math.round((n || 0) * 100)}%`;
@@ -87,28 +88,15 @@ export default function LeaderboardPage() {
 
   return (
     <div className="space-y-4">
-      <Surface className="overflow-hidden">
-        <div className="p-5">
-          <div className="text-2xl font-semibold tracking-tight text-white">Teams — who’s hitting the next checkpoint</div>
-          {data?.checkpoint?.endDate ? (
-            <div className="mt-1 text-sm text-slate-300">
-              Next checkpoint ends{" "}
-              <span className="font-semibold text-slate-200">
-                {new Date(data.checkpoint.endDate).toLocaleDateString()}
-              </span>
-            </div>
-          ) : (
-            <div className="mt-1 text-sm text-slate-300">Ranked by checkpoint completion.</div>
-          )}
-        </div>
+      <PageHeader
+        title="PCT Cup Leaderboard"
+        subtitle={
+          data?.checkpoint?.endDate
+            ? `Next checkpoint ends ${new Date(data.checkpoint.endDate).toLocaleDateString()}`
+            : " "
+        }
+      />
 
-        <RainbowRule />
-
-        <div className="px-5 py-4 text-sm text-slate-300">
-          Ranked by how many bros in each team have met{" "}
-          <span className="font-semibold text-slate-200">all</span> category requirements for the next checkpoint.
-        </div>
-      </Surface>
 
       {err && (
         <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
@@ -119,7 +107,7 @@ export default function LeaderboardPage() {
       {loading && <div className="text-sm text-slate-300">Loading…</div>}
 
       {!loading && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {rows.map((t, idx) => {
             const isMine = myTeamId != null && Number(t.teamId) === Number(myTeamId);
             const p = clamp01(t.pct);
@@ -138,14 +126,14 @@ export default function LeaderboardPage() {
                   className={[
                     // use fixed top + height to avoid stretching the card vertically
                     // make stripe taller so it reads visually prominent but doesn't stretch the card
-                    "pointer-events-none absolute left-3 top-5 h-22 w-1 rounded-full",
+                    "pointer-events-none absolute left-3 top-5 h-19 w-1 rounded-full",
                     isMine
                       ? "bg-[linear-gradient(180deg,#22c55e,#38bdf8,#a78bfa,#f472b6)] opacity-95 shadow-[0_0_24px_rgba(34,197,94,0.20)]"
                       : "bg-white/10",
                   ].join(" ")}
                 />
 
-                <div className="p-5 pl-7">
+                <div className="p-4 pl-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-4">
                       <RankPill rank={idx + 1} />
@@ -176,7 +164,7 @@ export default function LeaderboardPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 space-y-2">
+                  <div className="mt-3 space-y-2">
                     <ProgressBar value={p} highlight={isMine} />
                     <div className="flex items-center justify-between text-xs text-slate-400">
                     </div>
@@ -187,7 +175,7 @@ export default function LeaderboardPage() {
           })}
 
           {!rows.length && (
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-6 text-sm text-slate-300">
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-sm text-slate-300">
               No teams found yet (missing team assignments).
             </div>
           )}
