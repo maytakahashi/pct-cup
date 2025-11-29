@@ -1,22 +1,12 @@
 import axios from "axios";
 
-const baseURL =
-  process.env.REACT_APP_API_BASE_URL ||
-  (process.env.NODE_ENV === "development"
-    ? "http://localhost:3000"
-    : "https://pct-cup-production.up.railway.app");
+// Use an env var in production, fallback to local dev.
+// Vite env vars must start with VITE_
+const BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  "http://localhost:3001";
 
 export const api = axios.create({
-  baseURL,
-  withCredentials: true,
+  baseURL: BASE_URL,
+  withCredentials: true, // ✅ THIS is the "include credentials" for cookies
 });
-
-// tiny helper (optional)
-export async function safeGetMe() {
-  try {
-    const res = await api.get("/me");
-    return res.data;
-  } catch {
-    return null;
-  }
-}

@@ -11,7 +11,7 @@ import AdminAlerts from "./AdminAlerts";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename="/control">
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route element={<AdminLayout />}>

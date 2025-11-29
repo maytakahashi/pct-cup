@@ -768,12 +768,37 @@ if (isProd && brosDist) {
   // ✅ IMPORTANT: don't serve index.html automatically from static
   app.use(express.static(brosDist, { index: false }));
 
-  // ✅ SPA fallback: exclude API routes AND /assets so CSS/JS never becomes HTML
-  app.get(/^(?!\/(assets|auth|me|dashboard|schedule|leaderboard|admin)\b).*/, (req, res) => {
+  // ✅ SPA fallback: serve bro app for any non-asset, non-control path
+  app.get(/^\/(?!assets\/|control\/).*/, (req, res) => {
     res.sendFile(path.join(brosDist, "index.html"));
   });
 } else if (isProd) {
   console.warn("PROD: brosDist not found; frontend will not be served.");
+}
+
+function resolveAdminDist() {
+  const candidates = [
+    path.resolve(process.cwd(), "..", "admin-frontend", "dist"),
+    path.resolve(process.cwd(), "admin-frontend", "dist"),
+    path.resolve(__dirname, "..", "..", "admin-frontend", "dist"),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(path.join(p, "index.html"))) return p;
+  }
+  return null;
+}
+
+const adminDist = resolveAdminDist();
+
+if (isProd && adminDist) {
+  // Serve admin UI at /control
+  app.use("/control", express.static(adminDist, { index: false }));
+
+  app.get(/^\/control(?!\/assets\/).*/, (req, res) => {
+    res.sendFile(path.join(adminDist, "index.html"));
+  });
+} else if (isProd) {
+  console.warn("PROD: adminDist not found; admin UI will not be served.");
 }
 
 const PORT = process.env.PORT || 3001;
