@@ -936,6 +936,17 @@ app.get("/leaderboard/my-team", requireUser, async (req, res) => {
     members: out,
   });
 });
+// ---------- CHECKPOINTS (read-only for calendar highlighting) ----------
+app.get("/checkpoints", requireUser, async (req, res) => {
+  const checkpoints = await prisma.checkpoint.findMany({ orderBy: { number: "asc" } });
+  res.json({
+    checkpoints: checkpoints.map((c) => ({
+      number: c.number,
+      label: c.label,
+      endDate: c.endDate, // contains time, but calendar will highlight the date
+    })),
+  });
+});
 
 // ---------- SERVE BROS FRONTEND (PROD) ----------
 function resolveBrosDist() {

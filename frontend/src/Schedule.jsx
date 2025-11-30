@@ -15,18 +15,6 @@ function Card({ children, className = "" }) {
   );
 }
 
-function RainbowRule() {
-  return (
-    <div
-      className="h-0.5 w-full opacity-80"
-      style={{
-        background:
-          "linear-gradient(90deg, #FF3B30, #FF9500, #FFCC00, #34C759, #007AFF, #5856D6, #AF52DE)",
-      }}
-    />
-  );
-}
-
 function ymd(d) {
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -105,6 +93,51 @@ function IconButton({ onClick, children, title }) {
   );
 }
 
+// --- subtle “rainbow-ish” glow for special days (no rounding, spans full cell) ---
+function SpecialGlow({ lines }) {
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-0 opacity-80"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(88,86,214,0.18), rgba(0,122,255,0.16), rgba(52,199,89,0.10), rgba(255,204,0,0.08), rgba(255,149,0,0.08), rgba(255,59,48,0.10))",
+          boxShadow: "inset 0 0 0 1px rgba(234,240,255,0.10), 0 0 18px rgba(123,110,255,0.18)",
+          mixBlendMode: "screen",
+        }}
+      />
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute right-0 top-0 z-10 px-2 py-1 text-[10px] font-semibold tracking-wide text-[#EAF0FF]/90 text-right"
+        style={{ textShadow: "0 1px 10px rgba(0,0,0,0.55)" }}
+      >
+        {lines.map((t, i) => (
+          <span key={`${t}-${i}`} className="block leading-4">
+            {t}
+          </span>
+        ))}
+      </span>
+    </>
+  );
+}
+
+function parseCheckpointNumber(title) {
+  const s = String(title || "");
+  let m = s.match(/checkpoint\s*#?\s*(\d+)/i);
+  if (m) return Number(m[1]);
+  m = s.match(/\bcp\s*#?\s*(\d+)\b/i);
+  if (m) return Number(m[1]);
+  return null;
+}
+
+function isCupStarts(title) {
+  return String(title || "").toLowerCase().includes("pct cup starts");
+}
+function isCupEnds(title) {
+  return String(title || "").toLowerCase().includes("pct cup ends");
+}
+
 export default function Schedule() {
   const [events, setEvents] = useState([]);
   const [err, setErr] = useState(null);
@@ -157,6 +190,86 @@ export default function Schedule() {
       map.set(k, arr);
     }
     return map;
+  }, [events]);
+
+  // --- NEW: compute special highlights from the events feed only ---
+  const specialByDay = useMemo(() => {
+    const out = new Map(); // ymd -> { lines: string[] }
+
+    let starts = null;
+    let ends = null;
+
+    const checkpoints = [];
+
+    for (const e of events) {
+      const title = String(e?.title ?? "");
+      const cat = String(e?.categoryKey ?? "");
+
+      if (isCupStarts(title)) {
+        if (!starts || new Date(e.startsAt) < new Date(starts.startsAt)) starts = e;
+      }
+      if (isCupEnds(title)) {
+        if (!ends || new Date(e.startsAt) < new Date(ends.startsAt)) ends = e;
+      }
+
+      // keep checkpoint highlighting (remove if you don't want it anymore)
+      const isCheckpoint = cat === "CHECKPOINT" || /checkpoint/i.test(title);
+      if (isCheckpoint) checkpoints.push(e);
+    }
+
+    // PCT Cup Starts
+    if (starts?.startsAt) {
+      const d = new Date(starts.startsAt);
+      if (!Number.isNaN(d.getTime())) {
+        const key = ymd(d);
+        out.set(key, { lines: ["PCT Cup Starts"] });
+      }
+    }
+
+    // PCT Cup Ends
+    if (ends?.startsAt) {
+      const d = new Date(ends.startsAt);
+      if (!Number.isNaN(d.getTime())) {
+        const key = ymd(d);
+        const existing = out.get(key);
+        const line = "PCT Cup Ends";
+        if (!existing) out.set(key, { lines: [line] });
+        else if (!existing.lines.includes(line)) out.set(key, { lines: [...existing.lines, line] });
+      }
+    }
+
+    // Checkpoints (optional)
+    checkpoints.sort((a, b) => new Date(a.startsAt) - new Date(b.startsAt));
+    checkpoints.forEach((e, idx) => {
+      const d = new Date(e.startsAt);
+      if (Number.isNaN(d.getTime())) return;
+      const key = ymd(d);
+
+      const parsedNum = parseCheckpointNumber(e.title);
+      const num = Number.isFinite(parsedNum) ? parsedNum : idx + 1;
+      const line = `Checkpoint #${num}`;
+
+      const existing = out.get(key);
+      if (!existing) out.set(key, { lines: [line] });
+      else if (!existing.lines.includes(line)) out.set(key, { lines: [line, ...existing.lines] });
+    });
+
+    // tidy: max 2 lines, keep Cup labels above checkpoint if both exist
+    for (const [k, v] of out.entries()) {
+      const sorted = [...v.lines].sort((a, b) => {
+        const aCup = /pct cup/i.test(a);
+        const bCup = /pct cup/i.test(b);
+        if (aCup !== bCup) return aCup ? -1 : 1;
+        // starts before ends
+        const aStarts = /starts/i.test(a);
+        const bStarts = /starts/i.test(b);
+        if (aStarts !== bStarts) return aStarts ? -1 : 1;
+        return a.localeCompare(b);
+      });
+      out.set(k, { lines: sorted.slice(0, 2) });
+    }
+
+    return out;
   }, [events]);
 
   const days = useMemo(() => {
@@ -234,6 +347,8 @@ export default function Schedule() {
               const isSel = sameDay(d, selectedDay);
               const isToday = sameDay(d, new Date());
 
+              const special = specialByDay.get(key);
+
               const dots = [];
               const seen = new Set();
               for (const e of dayEvents) {
@@ -256,66 +371,73 @@ export default function Schedule() {
                     "group relative h-[92px] w-full border-b border-r border-[#23304D] px-2 py-2 text-left transition",
                     inMonth ? "bg-white/6 hover:bg-white/10" : "bg-white/2 hover:bg-white/5 opacity-60",
                     isSel ? "ring-2 ring-inset ring-[#EAF0FF]" : "",
+                    special ? "overflow-hidden" : "",
                   ].join(" ")}
                 >
-                  <div className="flex items-start justify-between">
-                    <div
-                      className={[
-                        "inline-flex h-7 w-7 items-center justify-center rounded-lg text-sm font-semibold border",
-                        isToday
-                          ? "bg-[#EAF0FF] text-[#0B0F1A] border-transparent"
-                          : "text-[#EAF0FF] border-[#23304D] bg-[#121A2B]/40",
-                        !inMonth ? "opacity-80" : "",
-                      ].join(" ")}
-                      title={d.toLocaleDateString()}
-                    >
-                      {d.getDate()}
+                  {special && <SpecialGlow lines={special.lines} />}
+
+                  <div className="relative z-10">
+                    <div className="flex items-start justify-between">
+                      <div
+                        className={[
+                          "inline-flex h-7 w-7 items-center justify-center rounded-lg text-sm font-semibold border",
+                          isToday
+                            ? "bg-[#EAF0FF] text-[#0B0F1A] border-transparent"
+                            : "text-[#EAF0FF] border-[#23304D] bg-[#121A2B]/40",
+                          !inMonth ? "opacity-80" : "",
+                        ].join(" ")}
+                        title={d.toLocaleDateString()}
+                      >
+                        {d.getDate()}
+                      </div>
+
+                      {dayEvents.length > 0 && (
+                        <div className="text-xs font-semibold text-[#9FB0D0]">{dayEvents.length}</div>
+                      )}
                     </div>
+
+                    {dots.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {dots.map((c, i) => (
+                          <Dot key={`${c}-${i}`} color={c} />
+                        ))}
+                        {dayEvents.length > dots.length && <span className="ml-1 text-xs text-[#9FB0D0]">+</span>}
+                      </div>
+                    )}
 
                     {dayEvents.length > 0 && (
-                      <div className="text-xs font-semibold text-[#9FB0D0]">{dayEvents.length}</div>
+                      <div className="pointer-events-none absolute left-2 top-10 z-20 hidden w-[280px] rounded-2xl border border-[#23304D] bg-[#0B0F1A] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)] group-hover:block">
+                        <div className="text-xs font-semibold text-[#9FB0D0]">{d.toLocaleDateString()}</div>
+                        <div className="mt-2 space-y-2">
+                          {dayEvents.slice(0, 3).map((e) => {
+                            const time = new Date(e.startsAt).toLocaleTimeString([], {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            });
+                            return (
+                              <div key={e.id} className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm font-semibold text-[#EAF0FF]">{e.title}</div>
+                                  <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-[#9FB0D0]">
+                                    <span>{time}</span>
+                                    {e.mandatory && <Pill tone="warn">Mandatory</Pill>}
+                                    {typeof e.serviceHours === "number" && e.serviceHours !== null && (
+                                      <Pill>{e.serviceHours} hr</Pill>
+                                    )}
+                                  </div>
+                                </div>
+                                <Dot color={e.color} />
+                              </div>
+                            );
+                          })}
+                          {dayEvents.length > 3 && (
+                            <div className="text-xs text-[#9FB0D0]">+{dayEvents.length - 3} more</div>
+                          )}
+                        </div>
+                        <div className="mt-3 text-xs text-[#9FB0D0] opacity-90">Click the day to see full list →</div>
+                      </div>
                     )}
                   </div>
-
-                  {dots.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {dots.map((c, i) => (
-                        <Dot key={`${c}-${i}`} color={c} />
-                      ))}
-                      {dayEvents.length > dots.length && <span className="ml-1 text-xs text-[#9FB0D0]">+</span>}
-                    </div>
-                  )}
-
-                  {dayEvents.length > 0 && (
-                    <div className="pointer-events-none absolute left-2 top-10 z-10 hidden w-[280px] rounded-2xl border border-[#23304D] bg-[#0B0F1A] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)] group-hover:block">
-                      <div className="text-xs font-semibold text-[#9FB0D0]">{d.toLocaleDateString()}</div>
-                      <div className="mt-2 space-y-2">
-                        {dayEvents.slice(0, 3).map((e) => {
-                          const time = new Date(e.startsAt).toLocaleTimeString([], {
-                            hour: "numeric",
-                            minute: "2-digit",
-                          });
-                          return (
-                            <div key={e.id} className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-semibold text-[#EAF0FF]">{e.title}</div>
-                                <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-[#9FB0D0]">
-                                  <span>{time}</span>
-                                  {e.mandatory && <Pill tone="warn">Mandatory</Pill>}
-                                  {typeof e.serviceHours === "number" && e.serviceHours !== null && (
-                                    <Pill>{e.serviceHours} hr</Pill>
-                                  )}
-                                </div>
-                              </div>
-                              <Dot color={e.color} />
-                            </div>
-                          );
-                        })}
-                        {dayEvents.length > 3 && <div className="text-xs text-[#9FB0D0]">+{dayEvents.length - 3} more</div>}
-                      </div>
-                      <div className="mt-3 text-xs text-[#9FB0D0] opacity-90">Click the day to see full list →</div>
-                    </div>
-                  )}
                 </button>
               );
             })}
