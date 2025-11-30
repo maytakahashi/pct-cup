@@ -132,8 +132,8 @@ export default function Layout() {
             </div>
 
             {/* Row 2 (mobile): navbar */}
-            <nav className="w-full">
-              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+            <nav className="w-full sm:w-auto sm:ml-auto">
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
                 <NavLink to="/dashboard">Dashboard</NavLink>
                 <NavLink to="/calendar">Calendar</NavLink>
                 <NavLink to="/leaderboard">Leaderboard</NavLink>
