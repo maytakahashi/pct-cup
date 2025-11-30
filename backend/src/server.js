@@ -752,6 +752,8 @@ app.get("/admin/alerts", requireUser, requireAdmin, async (req, res) => {
       const remainingNeeded = Math.max(required - completed, 0);
       if (remainingNeeded === 0) continue;
 
+      if (remainingNeeded - remainingOpportunities > 1) continue;
+
       const remainingOpportunities = oppsMap.get(c.id) || 0;
       const status = remainingNeeded === remainingOpportunities ? "AT_RISK" : "OFF_TRACK";
 
