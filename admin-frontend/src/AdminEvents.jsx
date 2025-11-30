@@ -3,6 +3,37 @@ import { api } from "./api";
 
 const CATEGORY_KEYS = ["CHAPTER", "RUSH", "INTERNAL", "CORPORATE", "PLEDGE", "SERVICE", "CASUAL"];
 
+export const CATEGORY = {
+  CHAPTER:   { label: "CHAPTER",   color: "#DE6561" },
+  RUSH:      { label: "RUSH",      color: "#FAB86D" },
+  INTERNAL:  { label: "INTERNAL",  color: "#FFDE76" },
+  CORPORATE: { label: "CORPORATE", color: "#9ECC80" },
+  PLEDGE:    { label: "PLEDGE",    color: "#7DA9B4" },
+  SERVICE:   { label: "SERVICE",   color: "#709CF2" },
+  CASUAL:    { label: "CASUAL",    color: "#8978C7" },
+};
+
+function hexToRgb(hex) {
+  const h = String(hex).replace("#", "").trim();
+  if (h.length !== 6) return { r: 160, g: 160, b: 160 };
+  const n = parseInt(h, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function badgeStyle(catKey) {
+  const base = CATEGORY[catKey]?.color || "#A1A1AA";
+  const { r, g, b } = hexToRgb(base);
+
+  // tuned for black text readability
+  const bgA = 0.28;      // background tint
+  const borderA = 0.55;  // border tint
+
+  return {
+    color: "#0A0A0A", // always black
+    borderColor: `rgba(${r},${g},${b},${borderA})`,
+    backgroundColor: `rgba(${r},${g},${b},${bgA})`,};
+}
+
 function pad2(n) {
   return String(n).padStart(2, "0");
 }
@@ -27,26 +58,6 @@ function localInputToISO(localValue) {
 
 function normalizeCategoryKey(ev) {
   return ev?.category?.key || ev?.categoryKey || null;
-}
-
-function eventBadgeClasses(categoryKey) {
-  switch (categoryKey) {
-    case "INTERNAL":
-      return "border-indigo-200 bg-indigo-50 text-indigo-700";
-    case "SERVICE":
-      return "border-emerald-200 bg-emerald-50 text-emerald-700";
-    case "CORPORATE":
-      return "border-sky-200 bg-sky-50 text-sky-700";
-    case "CHAPTER":
-      return "border-amber-200 bg-amber-50 text-amber-800";
-    case "RUSH":
-      return "border-pink-200 bg-pink-50 text-pink-700";
-    case "PLEDGE":
-      return "border-violet-200 bg-violet-50 text-violet-700";
-    case "CASUAL":
-    default:
-      return "border-zinc-200 bg-zinc-50 text-zinc-700";
-  }
 }
 
 export default function AdminEvents() {
@@ -338,10 +349,8 @@ export default function AdminEvents() {
                         <div className="flex flex-wrap items-center gap-2">
                           <div className="truncate font-medium text-zinc-900">{ev.title}</div>
                           <span
-                            className={[
-                              "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-xs font-semibold",
-                              eventBadgeClasses(catKey),
-                            ].join(" ")}
+                            className="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-xs font-semibold"
+                            style={badgeStyle(catKey)}
                           >
                             {catKey}
                           </span>
