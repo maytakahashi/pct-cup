@@ -106,30 +106,49 @@ export default function Layout() {
       bg-[radial-gradient(1000px_circle_at_15%_0%,rgba(59,130,246,0.20),transparent_55%),radial-gradient(900px_circle_at_85%_15%,rgba(236,72,153,0.16),transparent_55%),radial-gradient(900px_circle_at_50%_110%,rgba(34,197,94,0.12),transparent_60%),linear-gradient(180deg,#050B1A_0%,#020617_65%,#050B1A_100%)]"
     >
       <header className="sticky top-0 z-10 bg-[#050B1A]/60 backdrop-blur border-b border-white/10">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 lg:px-8">
-          <div className="flex items-center gap-3">
-            <Link to="/dashboard" className="text-base font-semibold tracking-tight text-white">
-              PCT Cup
-            </Link>
-            <span className="hidden rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-xs text-slate-200 sm:inline">
-              {me.username}
-            </span>
+        <div className="mx-auto w-full max-w-7xl px-4 py-3 lg:px-8">
+          {/* mobile: stack | sm+: single row */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {/* Row 1 (mobile): title + username pill */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Link to="/dashboard" className="text-base font-semibold tracking-tight text-white whitespace-nowrap">
+                  PCT Cup
+                </Link>
+
+                <span className="truncate rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-xs text-slate-200">
+                  {me.username}
+                </span>
+              </div>
+
+              {/* Optional: keep logout accessible on mobile without cramping nav */}
+              <button
+                onClick={logout}
+                disabled={busy}
+                className="shrink-0 rounded-xl border border-white/15 bg-white/4 px-3 py-1.5 text-sm font-semibold text-white hover:bg-white/10 disabled:opacity-50 sm:hidden"
+              >
+                Logout
+              </button>
+            </div>
+
+            {/* Row 2 (mobile): navbar */}
+            <nav className="w-full">
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+                <NavLink to="/dashboard">Dashboard</NavLink>
+                <NavLink to="/calendar">Calendar</NavLink>
+                <NavLink to="/leaderboard">Leaderboard</NavLink>
+
+                <span className="mx-1 hidden h-5 w-px bg-white/10 sm:block" />
+                <button
+                  onClick={logout}
+                  disabled={busy}
+                  className="hidden rounded-xl border border-white/15 bg-white/4 px-3 py-1.5 text-sm font-semibold text-white hover:bg-white/10 disabled:opacity-50 sm:inline-flex"
+                >
+                  Logout
+                </button>
+              </div>
+            </nav>
           </div>
-
-          <nav className="flex items-center gap-2">
-            <NavLink to="/dashboard">Dashboard</NavLink>
-            <NavLink to="/calendar">Calendar</NavLink>
-            <NavLink to="/leaderboard">Leaderboard</NavLink>
-
-            <span className="mx-1 hidden h-5 w-px bg-white/10 sm:block" />
-            <button
-              onClick={logout}
-              disabled={busy}
-              className="rounded-xl border border-white/15 bg-white/4 px-3 py-1.5 text-sm font-semibold text-white hover:bg-white/10 disabled:opacity-50"
-            >
-              Logout
-            </button>
-          </nav>
         </div>
 
         <RainbowRule />
