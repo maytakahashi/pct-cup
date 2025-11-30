@@ -801,5 +801,7 @@ if (isProd && adminDist) {
   console.warn("PROD: adminDist not found; admin UI will not be served.");
 }
 
+app.get("/control", (req, res) => res.redirect("/control/login"));
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`API on http://localhost:${PORT}`));
