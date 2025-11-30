@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 
-const CATEGORY_KEYS = ["CHAPTER", "RUSH", "INTERNAL", "CORPORATE", "PLEDGE", "SERVICE", "CASUAL"];
+const CATEGORY_KEYS = ["CHAPTER", "RUSH", "INTERNAL", "CORPORATE", "PLEDGE", "SERVICE", "CASUAL", "SOCIAL"];
 
 export const CATEGORY = {
   CHAPTER:   { label: "CHAPTER",   color: "#DE6561" },
@@ -11,6 +11,7 @@ export const CATEGORY = {
   PLEDGE:    { label: "PLEDGE",    color: "#7DA9B4" },
   SERVICE:   { label: "SERVICE",   color: "#709CF2" },
   CASUAL:    { label: "CASUAL",    color: "#8978C7" },
+  SOCIAL:    { label: "SOCIAL",    color: "#9CA3AF" },
 };
 
 function hexToRgb(hex) {

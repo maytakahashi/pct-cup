@@ -213,8 +213,11 @@ async function resolveNextCheckpoint() {
   return last;
 }
 
+const NON_COUNTING_CATEGORY_KEYS = new Set(["SOCIAL"]);
+
 function doesUserMeetCheckpoint({ cats, reqsMap, classType, completedMap }) {
   for (const c of cats) {
+    if (c.key === "SOCIAL") continue;
     const required = reqsMap.get(`${classType}:${c.id}`) ?? 0;
     const entry = completedMap.get(c.id) || { count: 0, service: 0 };
     const completed = c.key === "SERVICE" ? entry.service : entry.count;
@@ -523,6 +526,7 @@ app.post("/admin/events", requireUser, requireAdmin, async (req, res) => {
       "PLEDGE",
       "SERVICE",
       "CASUAL",
+      "SOCIAL",
     ]),
     serviceHours: z.union([z.number(), z.string()]).optional(),
   });
@@ -739,6 +743,7 @@ app.get("/admin/alerts", requireUser, requireAdmin, async (req, res) => {
     const completedMap = completedByUser.get(u.id) || new Map();
 
     for (const c of cats) {
+      if (NON_COUNTING_CATEGORY_KEYS.has(c.key)) continue;
       const required = reqs.get(`${u.classType}:${c.id}`) ?? 0;
       const completedEntry = completedMap.get(c.id) || { count: 0, service: 0 };
       const completed = c.key === "SERVICE" ? completedEntry.service : completedEntry.count;
@@ -788,6 +793,7 @@ app.get("/leaderboard", requireUser, async (req, res) => {
     let onTrack = 0;
 
     for (const c of cats) {
+      if (NON_COUNTING_CATEGORY_KEYS.has(c.key)) continue;
       const required = reqs.get(`${u.classType}:${c.id}`) ?? 0;
       if (required <= 0) {
         onTrack += 1;
@@ -897,6 +903,7 @@ app.get("/leaderboard/my-team", requireUser, async (req, res) => {
 
     const missing = [];
     for (const c of cats) {
+      if (NON_COUNTING_CATEGORY_KEYS.has(c.key)) continue;
       const required = reqsMap.get(`${m.classType}:${c.id}`) ?? 0;
       const entry = completedMap.get(c.id) || { count: 0, service: 0 };
       const completed = c.key === "SERVICE" ? entry.service : entry.count;

@@ -6,6 +6,8 @@ export const CATEGORY = {
   PLEDGE:    { label: "PLEDGE",    color: "#7DA9B4" },
   SERVICE:   { label: "SERVICE",   color: "#709CF2" },
   CASUAL:    { label: "CASUAL",    color: "#8978C7" },
+  SOCIAL:    { label: "SOCIAL",    color: "#9CA3AF" },
+
 };
 
 export const RAINBOW = Object.values(CATEGORY).map((x) => x.color);
