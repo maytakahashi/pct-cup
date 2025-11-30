@@ -216,9 +216,6 @@ export default function Schedule() {
                 </IconButton>
               </div>
             </div>
-            <div className="mt-3">
-              <RainbowRule />
-            </div>
           </div>
 
           <div className="grid grid-cols-7 border-b border-[#23304D] bg-[#0B0F1A] text-xs font-semibold text-[#9FB0D0]">
