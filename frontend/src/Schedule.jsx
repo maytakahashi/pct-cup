@@ -113,6 +113,7 @@ function isCupEnds(title) {
 function SpecialGlow({ items }) {
   return (
     <>
+      {/* glow always */}
       <span
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-0 opacity-80"
@@ -123,28 +124,24 @@ function SpecialGlow({ items }) {
           mixBlendMode: "screen",
         }}
       />
+
+      {/* ✅ labels hidden on mobile, show on sm+ */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute right-0 top-0 z-10 px-2 py-1 text-[10px] font-semibold tracking-wide text-[#EAF0FF]/90 text-right"
+        className="pointer-events-none absolute right-0 top-0 z-10 hidden px-2 py-1 text-[10px] font-semibold tracking-wide text-[#EAF0FF]/90 text-right sm:block"
         style={{ textShadow: "0 1px 10px rgba(0,0,0,0.55)" }}
       >
         {items.map((it, i) => (
           <span key={`${it.kind}-${it.text}-${i}`} className="block leading-4">
-            {/* ✅ hide checkpoint number on mobile; show on sm+ */}
-            {it.kind === "checkpoint" && it.num != null ? (
-              <>
-                {it.text}
-                <span className="hidden sm:inline"># {it.num}</span>
-              </>
-            ) : (
-              it.text
-            )}
+            {it.text}
+            {it.kind === "checkpoint" && it.num != null ? ` #${it.num}` : ""}
           </span>
         ))}
       </span>
     </>
   );
 }
+
 
 export default function Schedule() {
   const [events, setEvents] = useState([]);
