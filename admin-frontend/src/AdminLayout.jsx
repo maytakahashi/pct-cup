@@ -73,6 +73,7 @@ export default function AdminLayout() {
             <NavLink to="/events">Events</NavLink>
             <NavLink to="/attendance">Attendance</NavLink>
             <NavLink to="/alerts">Alerts</NavLink>
+            <NavLink to="/checkpoints">Checkpoints</NavLink>
 
             <span className="mx-1 hidden h-5 w-px bg-zinc-200 sm:block" />
             <button

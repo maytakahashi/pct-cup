@@ -44,7 +44,6 @@ app.use(
   })
 );
 
-
 // ---------- AUTH ----------
 app.post("/auth/login", async (req, res) => {
   const schema = z.object({
@@ -407,6 +406,118 @@ app.get("/admin/roster", requireUser, requireAdmin, async (req, res) => {
   );
 });
 
+// ---------- ADMIN: CHECKPOINTS (edit seed data) ----------
+app.get("/admin/checkpoints", requireUser, requireAdmin, async (req, res) => {
+  const checkpoints = await prisma.checkpoint.findMany({
+    orderBy: { number: "asc" },
+  });
+  res.json({ checkpoints });
+});
+
+app.get("/admin/checkpoints/:number", requireUser, requireAdmin, async (req, res) => {
+  const n = Number(req.params.number);
+  if (!Number.isFinite(n)) return res.status(400).json({ error: "Bad checkpoint number" });
+
+  const cp = await prisma.checkpoint.findUnique({ where: { number: n } });
+  if (!cp) return res.status(404).json({ error: "Checkpoint not found" });
+
+  res.json(cp);
+});
+
+app.post("/admin/checkpoints", requireUser, requireAdmin, async (req, res) => {
+  const schema = z.object({
+    number: z.number().int().positive(),
+    label: z.string().min(1).optional(),
+    endDate: z.string().min(1),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Bad input" });
+
+  const { number, label, endDate } = parsed.data;
+  const endDateObj = new Date(endDate);
+  if (Number.isNaN(endDateObj.getTime())) {
+    return res.status(400).json({ error: "Invalid endDate" });
+  }
+
+  try {
+    const created = await prisma.checkpoint.create({
+      data: {
+        number,
+        label: label ?? `Checkpoint ${number}`,
+        endDate: endDateObj,
+      },
+    });
+    res.json(created);
+  } catch (e) {
+    res.status(400).json({
+      error: "Failed to create checkpoint (number must be unique).",
+      detail: String(e?.message ?? e),
+    });
+  }
+});
+
+app.put("/admin/checkpoints/:number", requireUser, requireAdmin, async (req, res) => {
+  const currentNumber = Number(req.params.number);
+  if (!Number.isFinite(currentNumber)) {
+    return res.status(400).json({ error: "Bad checkpoint number" });
+  }
+
+  const schema = z.object({
+    // if you want to renumber a checkpoint, pass newNumber
+    newNumber: z.number().int().positive().optional(),
+    label: z.string().min(1).optional(),
+    endDate: z.string().min(1).optional(),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Bad input" });
+
+  const data = {};
+  if (parsed.data.label !== undefined) data.label = parsed.data.label;
+
+  if (parsed.data.endDate !== undefined) {
+    const endDateObj = new Date(parsed.data.endDate);
+    if (Number.isNaN(endDateObj.getTime())) {
+      return res.status(400).json({ error: "Invalid endDate" });
+    }
+    data.endDate = endDateObj;
+  }
+
+  if (parsed.data.newNumber !== undefined) data.number = parsed.data.newNumber;
+
+  try {
+    const updated = await prisma.checkpoint.update({
+      where: { number: currentNumber },
+      data,
+    });
+    res.json(updated);
+  } catch (e) {
+    res.status(400).json({
+      error:
+        "Failed to update checkpoint. (If renumbering, ensure newNumber is unique.)",
+      detail: String(e?.message ?? e),
+    });
+  }
+});
+
+app.delete("/admin/checkpoints/:number", requireUser, requireAdmin, async (req, res) => {
+  const n = Number(req.params.number);
+  if (!Number.isFinite(n)) return res.status(400).json({ error: "Bad checkpoint number" });
+
+  try {
+    await prisma.checkpoint.delete({ where: { number: n } });
+    res.json({ ok: true });
+  } catch (e) {
+    // likely blocked by foreign keys (requirements referencing checkpointId)
+    res.status(400).json({
+      error:
+        "Failed to delete checkpoint. It may be referenced by requirements/other rows.",
+      detail: String(e?.message ?? e),
+    });
+  }
+});
+
 // ---------- ADMIN: EVENTS ----------
 app.post("/admin/events", requireUser, requireAdmin, async (req, res) => {
   const schema = z.object({
@@ -462,6 +573,89 @@ app.get("/admin/events", requireUser, requireAdmin, async (req, res) => {
     orderBy: { startsAt: "asc" },
   });
   res.json(events);
+});
+
+/**
+ * ✅ NEW: Update an event (title/time/category/serviceHours) so you can reseed/fix data in prod.
+ * Body supports any subset of fields:
+ *  - title
+ *  - startsAt (ISO string)
+ *  - categoryKey
+ *  - serviceHours (only applies if final category is SERVICE; otherwise forced null)
+ *
+ * Note: mandatory remains a hard rule: categoryKey === INTERNAL => mandatory true, else false.
+ */
+app.put("/admin/events/:id", requireUser, requireAdmin, async (req, res) => {
+  const eventId = Number(req.params.id);
+  if (!Number.isFinite(eventId)) return res.status(400).json({ error: "Bad event id" });
+
+  const schema = z.object({
+    title: z.string().min(1).optional(),
+    startsAt: z.string().min(1).optional(),
+    categoryKey: z
+      .enum([
+        "CHAPTER",
+        "RUSH",
+        "INTERNAL",
+        "CORPORATE",
+        "PLEDGE",
+        "SERVICE",
+        "CASUAL",
+      ])
+      .optional(),
+    serviceHours: z.union([z.number(), z.string(), z.null()]).optional(),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Bad input" });
+
+  const existing = await prisma.event.findUnique({
+    where: { id: eventId },
+    include: { category: true },
+  });
+  if (!existing) return res.status(404).json({ error: "Event not found" });
+
+  // Determine final category
+  const finalCategoryKey = parsed.data.categoryKey ?? existing.category?.key;
+  const finalCategory =
+    finalCategoryKey
+      ? await prisma.category.findUnique({ where: { key: finalCategoryKey } })
+      : null;
+
+  if (!finalCategory) return res.status(400).json({ error: "Invalid categoryKey" });
+
+  const data = {};
+
+  if (parsed.data.title !== undefined) data.title = parsed.data.title;
+
+  if (parsed.data.startsAt !== undefined) {
+    const startsAtDate = new Date(parsed.data.startsAt);
+    if (Number.isNaN(startsAtDate.getTime())) {
+      return res.status(400).json({ error: "Invalid startsAt" });
+    }
+    data.startsAt = startsAtDate;
+  }
+
+  // category / mandatory
+  data.categoryId = finalCategory.id;
+  data.mandatory = finalCategoryKey === "INTERNAL";
+
+  // service hours rules
+  if (finalCategoryKey === "SERVICE") {
+    const raw = parsed.data.serviceHours ?? existing.serviceHours ?? 1;
+    const n = Math.max(1, parseInt(String(raw), 10));
+    data.serviceHours = Number.isFinite(n) ? n : 1;
+  } else {
+    data.serviceHours = null;
+  }
+
+  const updated = await prisma.event.update({
+    where: { id: eventId },
+    data,
+    include: { category: true },
+  });
+
+  res.json(updated);
 });
 
 app.delete("/admin/events/:id", requireUser, requireAdmin, async (req, res) => {
@@ -794,6 +988,7 @@ if (isProd && adminDist) {
   // Serve admin UI at /control
   app.use("/control", express.static(adminDist, { index: false }));
 
+  // Admin SPA fallback (avoid swallowing /control/assets/*)
   app.get(/^\/control(?!\/assets\/).*/, (req, res) => {
     res.sendFile(path.join(adminDist, "index.html"));
   });
