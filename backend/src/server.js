@@ -597,6 +597,7 @@ app.put("/admin/events/:id", requireUser, requireAdmin, async (req, res) => {
         "PLEDGE",
         "SERVICE",
         "CASUAL",
+        "SOCIAL",
       ])
       .optional(),
     serviceHours: z.union([z.number(), z.string(), z.null()]).optional(),
