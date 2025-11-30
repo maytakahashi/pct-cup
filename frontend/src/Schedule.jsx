@@ -202,7 +202,7 @@ export default function Schedule() {
           {/* Toolbar */}
           <div className="border-b border-[#23304D] bg-[#0B0F1A] px-3 py-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-base font-semibold text-[#EAF0FF]">{formatMonthYear(month)}</div>
+              <div className="text-xl font-semibold text-[#EAF0FF]">{formatMonthYear(month)}</div>
 
               <div className="flex items-center gap-2">
                 <IconButton onClick={prevMonth} title="Previous month">
