@@ -93,8 +93,24 @@ function IconButton({ onClick, children, title }) {
   );
 }
 
+function parseCheckpointNumber(title) {
+  const s = String(title || "");
+  let m = s.match(/checkpoint\s*#?\s*(\d+)/i);
+  if (m) return Number(m[1]);
+  m = s.match(/\bcp\s*#?\s*(\d+)\b/i);
+  if (m) return Number(m[1]);
+  return null;
+}
+
+function isCupStarts(title) {
+  return String(title || "").toLowerCase().includes("pct cup starts");
+}
+function isCupEnds(title) {
+  return String(title || "").toLowerCase().includes("pct cup ends");
+}
+
 // --- subtle “rainbow-ish” glow for special days (no rounding, spans full cell) ---
-function SpecialGlow({ lines }) {
+function SpecialGlow({ items }) {
   return (
     <>
       <span
@@ -112,30 +128,22 @@ function SpecialGlow({ lines }) {
         className="pointer-events-none absolute right-0 top-0 z-10 px-2 py-1 text-[10px] font-semibold tracking-wide text-[#EAF0FF]/90 text-right"
         style={{ textShadow: "0 1px 10px rgba(0,0,0,0.55)" }}
       >
-        {lines.map((t, i) => (
-          <span key={`${t}-${i}`} className="block leading-4">
-            {t}
+        {items.map((it, i) => (
+          <span key={`${it.kind}-${it.text}-${i}`} className="block leading-4">
+            {/* ✅ hide checkpoint number on mobile; show on sm+ */}
+            {it.kind === "checkpoint" && it.num != null ? (
+              <>
+                {it.text}
+                <span className="hidden sm:inline"># {it.num}</span>
+              </>
+            ) : (
+              it.text
+            )}
           </span>
         ))}
       </span>
     </>
   );
-}
-
-function parseCheckpointNumber(title) {
-  const s = String(title || "");
-  let m = s.match(/checkpoint\s*#?\s*(\d+)/i);
-  if (m) return Number(m[1]);
-  m = s.match(/\bcp\s*#?\s*(\d+)\b/i);
-  if (m) return Number(m[1]);
-  return null;
-}
-
-function isCupStarts(title) {
-  return String(title || "").toLowerCase().includes("pct cup starts");
-}
-function isCupEnds(title) {
-  return String(title || "").toLowerCase().includes("pct cup ends");
 }
 
 export default function Schedule() {
@@ -192,9 +200,11 @@ export default function Schedule() {
     return map;
   }, [events]);
 
-  // --- NEW: compute special highlights from the events feed only ---
+  // --- compute special highlights from the events feed only ---
+  // PCT Cup: look for titles containing exactly "PCT Cup Starts"/"PCT Cup Ends" (case-insensitive)
+  // Optional: checkpoints are still supported via categoryKey === "CHECKPOINT" OR title contains "checkpoint"
   const specialByDay = useMemo(() => {
-    const out = new Map(); // ymd -> { lines: string[] }
+    const out = new Map(); // ymd -> { items: Array<{kind, num?, text}> }
 
     let starts = null;
     let ends = null;
@@ -212,17 +222,21 @@ export default function Schedule() {
         if (!ends || new Date(e.startsAt) < new Date(ends.startsAt)) ends = e;
       }
 
-      // keep checkpoint highlighting (remove if you don't want it anymore)
       const isCheckpoint = cat === "CHECKPOINT" || /checkpoint/i.test(title);
       if (isCheckpoint) checkpoints.push(e);
     }
+
+    const add = (key, item) => {
+      const existing = out.get(key);
+      if (!existing) out.set(key, { items: [item] });
+      else out.set(key, { items: [...existing.items, item] });
+    };
 
     // PCT Cup Starts
     if (starts?.startsAt) {
       const d = new Date(starts.startsAt);
       if (!Number.isNaN(d.getTime())) {
-        const key = ymd(d);
-        out.set(key, { lines: ["PCT Cup Starts"] });
+        add(ymd(d), { kind: "cup", text: "PCT Cup Starts" });
       }
     }
 
@@ -230,11 +244,7 @@ export default function Schedule() {
     if (ends?.startsAt) {
       const d = new Date(ends.startsAt);
       if (!Number.isNaN(d.getTime())) {
-        const key = ymd(d);
-        const existing = out.get(key);
-        const line = "PCT Cup Ends";
-        if (!existing) out.set(key, { lines: [line] });
-        else if (!existing.lines.includes(line)) out.set(key, { lines: [...existing.lines, line] });
+        add(ymd(d), { kind: "cup", text: "PCT Cup Ends" });
       }
     }
 
@@ -247,26 +257,22 @@ export default function Schedule() {
 
       const parsedNum = parseCheckpointNumber(e.title);
       const num = Number.isFinite(parsedNum) ? parsedNum : idx + 1;
-      const line = `Checkpoint #${num}`;
 
-      const existing = out.get(key);
-      if (!existing) out.set(key, { lines: [line] });
-      else if (!existing.lines.includes(line)) out.set(key, { lines: [line, ...existing.lines] });
+      add(key, { kind: "checkpoint", num, text: "Checkpoint" });
     });
 
-    // tidy: max 2 lines, keep Cup labels above checkpoint if both exist
+    // tidy: order Cup labels above checkpoints, limit to 2 lines
     for (const [k, v] of out.entries()) {
-      const sorted = [...v.lines].sort((a, b) => {
-        const aCup = /pct cup/i.test(a);
-        const bCup = /pct cup/i.test(b);
+      const sorted = [...v.items].sort((a, b) => {
+        const aCup = a.kind === "cup";
+        const bCup = b.kind === "cup";
         if (aCup !== bCup) return aCup ? -1 : 1;
-        // starts before ends
-        const aStarts = /starts/i.test(a);
-        const bStarts = /starts/i.test(b);
-        if (aStarts !== bStarts) return aStarts ? -1 : 1;
-        return a.localeCompare(b);
+
+        // starts before ends (both are "cup" with 1./2. anyway)
+        return a.text.localeCompare(b.text);
       });
-      out.set(k, { lines: sorted.slice(0, 2) });
+
+      out.set(k, { items: sorted.slice(0, 2) });
     }
 
     return out;
@@ -374,7 +380,7 @@ export default function Schedule() {
                     special ? "overflow-hidden" : "",
                   ].join(" ")}
                 >
-                  {special && <SpecialGlow lines={special.lines} />}
+                  {special && <SpecialGlow items={special.items} />}
 
                   <div className="relative z-10">
                     <div className="flex items-start justify-between">
@@ -391,9 +397,7 @@ export default function Schedule() {
                         {d.getDate()}
                       </div>
 
-                      {dayEvents.length > 0 && (
-                        <div className="text-xs font-semibold text-[#9FB0D0]">{dayEvents.length}</div>
-                      )}
+                      {/* ✅ removed the “# of events” badge entirely */}
                     </div>
 
                     {dots.length > 0 && (
