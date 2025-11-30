@@ -92,6 +92,19 @@ function Pill({ children, tone = "neutral" }) {
   );
 }
 
+function IconButton({ onClick, children, title }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/90 hover:bg-white/10"
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function Schedule() {
   const [events, setEvents] = useState([]);
   const [err, setErr] = useState(null);
@@ -175,32 +188,7 @@ export default function Schedule() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title={`Schedule of Events — ${formatMonthYear(month)}`}
-        subtitle="Click/tap to open the agenda for any day."
-        right={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={prevMonth}
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/90 hover:bg-white/10"
-            >
-              ←
-            </button>
-            <button
-              onClick={jumpToday}
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/90 hover:bg-white/10"
-            >
-              Today
-            </button>
-            <button
-              onClick={nextMonth}
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/90 hover:bg-white/10"
-            >
-              →
-            </button>
-          </div>
-        }
-      />
+      <PageHeader title="Schedule of Events" subtitle="Click/tap to open the agenda for any day." />
 
       {err && (
         <div className="rounded-xl border border-[#5b1b1b] bg-[#2a1010] px-4 py-3 text-sm text-[#FFB4B4]">
@@ -211,6 +199,28 @@ export default function Schedule() {
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
         {/* Calendar */}
         <Card className="overflow-hidden">
+          {/* Toolbar */}
+          <div className="border-b border-[#23304D] bg-[#0B0F1A] px-3 py-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-base font-semibold text-[#EAF0FF]">{formatMonthYear(month)}</div>
+
+              <div className="flex items-center gap-2">
+                <IconButton onClick={prevMonth} title="Previous month">
+                  ←
+                </IconButton>
+                <IconButton onClick={jumpToday} title="Jump to today">
+                  Today
+                </IconButton>
+                <IconButton onClick={nextMonth} title="Next month">
+                  →
+                </IconButton>
+              </div>
+            </div>
+            <div className="mt-3">
+              <RainbowRule />
+            </div>
+          </div>
+
           <div className="grid grid-cols-7 border-b border-[#23304D] bg-[#0B0F1A] text-xs font-semibold text-[#9FB0D0]">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((w) => (
               <div key={w} className="px-3 py-2">
@@ -247,9 +257,7 @@ export default function Schedule() {
                   }}
                   className={[
                     "group relative h-[92px] w-full border-b border-r border-[#23304D] px-2 py-2 text-left transition",
-                    inMonth
-                      ? "bg-white/6 hover:bg-white/10"
-                      : "bg-white/2 hover:bg-white/5 opacity-60",
+                    inMonth ? "bg-white/6 hover:bg-white/10" : "bg-white/2 hover:bg-white/5 opacity-60",
                     isSel ? "ring-2 ring-inset ring-[#EAF0FF]" : "",
                   ].join(" ")}
                 >
@@ -281,7 +289,6 @@ export default function Schedule() {
                     </div>
                   )}
 
-                  {/* hover preview (desktop) */}
                   {dayEvents.length > 0 && (
                     <div className="pointer-events-none absolute left-2 top-10 z-10 hidden w-[280px] rounded-2xl border border-[#23304D] bg-[#0B0F1A] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)] group-hover:block">
                       <div className="text-xs font-semibold text-[#9FB0D0]">{d.toLocaleDateString()}</div>
