@@ -120,12 +120,6 @@ async function getNextCheckpoint() {
   });
 }
 
-function endOfDay(d) {
-  const x = new Date(d);
-  x.setHours(23, 59, 59, 999);
-  return x;
-}
-
 async function getCategories() {
   return prisma.category.findMany({ orderBy: { id: "asc" } });
 }
@@ -170,10 +164,7 @@ async function completedByCategoryForUser(userId, checkpointEnd) {
 
 async function remainingOppsByCategory(checkpointEnd) {
   const now = new Date();
-
-  // include the whole checkpoint end day (prevents “endDate at midnight” bugs)
-  const end = new Date(checkpointEnd);
-  end.setHours(23, 59, 59, 999);
+  const end = new Date(checkpointEnd); // exact
 
   // if we're already past the checkpoint, there are 0 remaining opportunities
   if (now > end) return new Map();
@@ -187,6 +178,7 @@ async function remainingOppsByCategory(checkpointEnd) {
   for (const e of future) map.set(e.categoryId, (map.get(e.categoryId) || 0) + 1);
   return map;
 }
+
 
 async function resolveCheckpointNumber(raw) {
   const n = Number(raw);
@@ -277,7 +269,7 @@ app.get("/dashboard/me", requireUser, async (req, res) => {
 
   if (!cp) return res.status(404).json({ error: "No upcoming checkpoint found" });
 
-  const cpEnd = endOfDay(cp.endDate);
+  const cpEnd = new Date(cp.endDate);
 
   const cats = await getCategories();
   const reqs = await requiredMap(cp.id);
