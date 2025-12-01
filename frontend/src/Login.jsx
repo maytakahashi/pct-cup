@@ -130,7 +130,7 @@ export default function Login() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"
-                  placeholder="first.last"
+                  placeholder="joe.fontana"
                   className="w-full rounded-xl border border-[#23304D] bg-[#0B0F1A] px-3 py-2.5 text-[#EAF0FF] placeholder:text-[#9FB0D0]/60 outline-none transition focus:border-transparent focus:ring-2 focus:ring-[#007AFF]/60"
                 />
               </div>
