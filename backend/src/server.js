@@ -65,6 +65,8 @@ app.post("/auth/login", async (req, res) => {
   const token = randomToken();
   const tokenHash = sha256(token);
 
+  const COOKIE_DOMAIN = isProd ? ".pctcup.com" : undefined;
+  
   // 30 days
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
@@ -77,6 +79,7 @@ app.post("/auth/login", async (req, res) => {
     sameSite: isProd ? "none" : "lax",
     secure: isProd ? true : false,
     expires: expiresAt,
+    domain: COOKIE_DOMAIN,
   });
 
   res.json({ ok: true });
@@ -93,6 +96,7 @@ app.post("/auth/logout", requireUser, async (req, res) => {
     httpOnly: true,
     sameSite: isProd ? "none" : "lax",
     secure: isProd,
+    domain: COOKIE_DOMAIN,
   });
 
   res.json({ ok: true });
