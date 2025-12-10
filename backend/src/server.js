@@ -80,6 +80,7 @@ app.post("/auth/login", async (req, res) => {
     secure: isProd ? true : false,
     expires: expiresAt,
     domain: COOKIE_DOMAIN,
+    path: "/",           
   });
 
   res.json({ ok: true });
@@ -97,6 +98,7 @@ app.post("/auth/logout", requireUser, async (req, res) => {
     sameSite: isProd ? "none" : "lax",
     secure: isProd,
     domain: COOKIE_DOMAIN,
+    path: "/",    
   });
 
   res.json({ ok: true });
