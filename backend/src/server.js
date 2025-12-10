@@ -66,6 +66,7 @@ app.post("/auth/login", async (req, res) => {
   const tokenHash = sha256(token);
 
   const COOKIE_DOMAIN = isProd ? ".pctcup.com" : undefined;
+  const COOKIE_SAMESITE = "lax";
   
   // 30 days
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -76,11 +77,11 @@ app.post("/auth/login", async (req, res) => {
 
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
-    sameSite: isProd ? "none" : "lax",
-    secure: isProd ? true : false,
+    sameSite: COOKIE_SAMESITE,
+    secure: isProd,
     expires: expiresAt,
     domain: COOKIE_DOMAIN,
-    path: "/",           
+    path: "/",
   });
 
   res.json({ ok: true });
@@ -91,14 +92,12 @@ app.post("/auth/logout", requireUser, async (req, res) => {
   if (token) {
     await prisma.session.deleteMany({ where: { tokenHash: sha256(token) } });
   }
-
-  // IMPORTANT: clear with SAME settings as set-cookie (esp sameSite/secure in prod)
   res.clearCookie(COOKIE_NAME, {
     httpOnly: true,
-    sameSite: isProd ? "none" : "lax",
+    sameSite: COOKIE_SAMESITE,
     secure: isProd,
     domain: COOKIE_DOMAIN,
-    path: "/",    
+    path: "/",
   });
 
   res.json({ ok: true });
