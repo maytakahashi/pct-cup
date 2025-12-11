@@ -1,3 +1,4 @@
+// backend/src/server.js
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -24,6 +25,12 @@ app.use(cookieParser());
 app.set("trust proxy", 1);
 
 const isProd = process.env.NODE_ENV === "production";
+
+// ✅ cookie settings (shared by login + logout)
+// - domain: share cookie across pctcup.com + www.pctcup.com
+// - sameSite: lax (you are not doing cross-site auth; Safari hates None)
+const COOKIE_DOMAIN = isProd ? ".pctcup.com" : undefined;
+const COOKIE_SAMESITE = "lax";
 
 const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean)
@@ -65,9 +72,6 @@ app.post("/auth/login", async (req, res) => {
   const token = randomToken();
   const tokenHash = sha256(token);
 
-  const COOKIE_DOMAIN = isProd ? ".pctcup.com" : undefined;
-  const COOKIE_SAMESITE = "lax";
-  
   // 30 days
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
@@ -87,11 +91,22 @@ app.post("/auth/login", async (req, res) => {
   res.json({ ok: true });
 });
 
-app.post("/auth/logout", requireUser, async (req, res) => {
-  const token = req.cookies?.[COOKIE_NAME];
-  if (token) {
-    await prisma.session.deleteMany({ where: { tokenHash: sha256(token) } });
+// ✅ IMPORTANT: logout must work even when session is invalid.
+// Do NOT gate with requireUser, otherwise you can never clear a "stuck" cookie.
+app.post("/auth/logout", async (req, res) => {
+  try {
+    const token = req.cookies?.[COOKIE_NAME];
+
+    // best-effort server-side cleanup
+    if (token) {
+      await prisma.session.deleteMany({ where: { tokenHash: sha256(token) } });
+    }
+  } catch (e) {
+    // don't block logout on DB errors
+    console.error("logout cleanup error:", e?.message ?? e);
   }
+
+  // always clear cookie (must match login cookie settings)
   res.clearCookie(COOKIE_NAME, {
     httpOnly: true,
     sameSite: COOKIE_SAMESITE,
@@ -180,10 +195,10 @@ async function remainingOppsByCategory(checkpointEnd) {
   });
 
   const map = new Map();
-  for (const e of future) map.set(e.categoryId, (map.get(e.categoryId) || 0) + 1);
+  for (const e of future)
+    map.set(e.categoryId, (map.get(e.categoryId) || 0) + 1);
   return map;
 }
-
 
 async function resolveCheckpointNumber(raw) {
   const n = Number(raw);
@@ -287,7 +302,8 @@ app.get("/dashboard/me", requireUser, async (req, res) => {
   const out = cats.map((c) => {
     const required = reqs.get(`${req.user.classType}:${c.id}`) ?? 0;
     const completedEntry = completedMap.get(c.id) || { count: 0, service: 0 };
-    const completed = c.key === "SERVICE" ? completedEntry.service : completedEntry.count;
+    const completed =
+      c.key === "SERVICE" ? completedEntry.service : completedEntry.count;
 
     const remainingNeeded = Math.max(required - completed, 0);
     const remainingOpportunities = oppsMap.get(c.id) || 0;
@@ -305,7 +321,11 @@ app.get("/dashboard/me", requireUser, async (req, res) => {
   });
 
   res.json({
-    user: { firstName: req.user.firstName, lastName: req.user.lastName, teamId: req.user.teamId },
+    user: {
+      firstName: req.user.firstName,
+      lastName: req.user.lastName,
+      teamId: req.user.teamId,
+    },
     checkpoint: { number: cp.number, label: cp.label, endDate: cp.endDate },
     categories: out,
   });
@@ -325,7 +345,13 @@ app.get("/dashboard/team", requireUser, async (req, res) => {
 
   const teammates = await prisma.user.findMany({
     where: { teamId: req.user.teamId },
-    select: { id: true, firstName: true, lastName: true, classType: true, username: true },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      classType: true,
+      username: true,
+    },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 
@@ -336,7 +362,8 @@ app.get("/dashboard/team", requireUser, async (req, res) => {
     const perCategory = cats.map((c) => {
       const required = reqs.get(`${tm.classType}:${c.id}`) ?? 0;
       const completedEntry = completedMap.get(c.id) || { count: 0, service: 0 };
-      const completed = c.key === "SERVICE" ? completedEntry.service : completedEntry.count;
+      const completed =
+        c.key === "SERVICE" ? completedEntry.service : completedEntry.count;
 
       const remainingNeeded = Math.max(required - completed, 0);
 
@@ -360,7 +387,12 @@ app.get("/dashboard/team", requireUser, async (req, res) => {
   }
 
   res.json({
-    checkpoint: { number: cp.number, label: cp.label, endDate: cp.endDate, passed: checkpointPassed },
+    checkpoint: {
+      number: cp.number,
+      label: cp.label,
+      endDate: cp.endDate,
+      passed: checkpointPassed,
+    },
     teamId: req.user.teamId,
     members,
   });
@@ -392,7 +424,13 @@ app.get("/schedule", requireUser, async (req, res) => {
 app.get("/admin/roster", requireUser, requireAdmin, async (req, res) => {
   const users = await prisma.user.findMany({
     where: { role: "BRO" },
-    select: { id: true, firstName: true, lastName: true, username: true, teamId: true },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      username: true,
+      teamId: true,
+    },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 
@@ -760,7 +798,8 @@ app.get("/admin/alerts", requireUser, requireAdmin, async (req, res) => {
       const remainingOpportunities = oppsMap.get(c.id) || 0;
       if ((remainingOpportunities - remainingNeeded) >= 1) continue; // fix
 
-      const status = remainingNeeded === remainingOpportunities ? "AT_RISK" : "OFF_TRACK";
+      const status =
+        remainingNeeded === remainingOpportunities ? "AT_RISK" : "OFF_TRACK";
 
       alerts.push({
         username: u.username,
@@ -788,7 +827,14 @@ app.get("/leaderboard", requireUser, async (req, res) => {
 
   const users = await prisma.user.findMany({
     where: { role: "BRO" },
-    select: { id: true, firstName: true, lastName: true, username: true, teamId: true, classType: true },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      username: true,
+      teamId: true,
+      classType: true,
+    },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 
@@ -826,7 +872,12 @@ app.get("/leaderboard", requireUser, async (req, res) => {
     };
   });
 
-  rows.sort((a, b) => b.score - a.score || b.onTrack - a.onTrack || a.name.localeCompare(b.name));
+  rows.sort(
+    (a, b) =>
+      b.score - a.score ||
+      b.onTrack - a.onTrack ||
+      a.name.localeCompare(b.name)
+  );
 
   res.json({
     checkpoint: { number: cp.number, label: cp.label, endDate: cp.endDate },
@@ -843,7 +894,13 @@ app.get("/leaderboard/teams", requireUser, async (req, res) => {
 
   const bros = await prisma.user.findMany({
     where: { role: "BRO" },
-    select: { id: true, teamId: true, classType: true, firstName: true, lastName: true },
+    select: {
+      id: true,
+      teamId: true,
+      classType: true,
+      firstName: true,
+      lastName: true,
+    },
   });
 
   const byTeam = new Map();
@@ -876,7 +933,12 @@ app.get("/leaderboard/teams", requireUser, async (req, res) => {
     });
   }
 
-  teams.sort((a, b) => b.metCount - a.metCount || b.pct - a.pct || a.teamId - b.teamId);
+  teams.sort(
+    (a, b) =>
+      b.metCount - a.metCount ||
+      b.pct - a.pct ||
+      a.teamId - b.teamId
+  );
 
   res.json({
     checkpoint: { number: cp.number, label: cp.label, endDate: cp.endDate },
@@ -901,7 +963,13 @@ app.get("/leaderboard/my-team", requireUser, async (req, res) => {
 
   const members = await prisma.user.findMany({
     where: { teamId: req.user.teamId, role: "BRO" },
-    select: { id: true, firstName: true, lastName: true, classType: true, username: true },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      classType: true,
+      username: true,
+    },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 
@@ -941,9 +1009,12 @@ app.get("/leaderboard/my-team", requireUser, async (req, res) => {
     members: out,
   });
 });
+
 // ---------- CHECKPOINTS (read-only for calendar highlighting) ----------
 app.get("/checkpoints", requireUser, async (req, res) => {
-  const checkpoints = await prisma.checkpoint.findMany({ orderBy: { number: "asc" } });
+  const checkpoints = await prisma.checkpoint.findMany({
+    orderBy: { number: "asc" },
+  });
   res.json({
     checkpoints: checkpoints.map((c) => ({
       number: c.number,
