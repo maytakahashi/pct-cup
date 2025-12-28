@@ -9,6 +9,7 @@ import Login from "./Login";
 import Dashboard from "./Dashboard";
 import Schedule from "./Schedule";
 import LeaderboardPage from "./LeaderboardPage";
+import FAQs from "./FAQs";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -20,12 +21,13 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         {/* Never serve admin pages from bro frontend */}
         <Route path="/admin/*" element={<Navigate to="/dashboard" replace />} />
 
-        {/* App (protected by Layout, which must render <Outlet />) */}
+        {/* App shell */}
         <Route path="/" element={<Layout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="calendar" element={<Schedule />} />
           <Route path="leaderboard" element={<LeaderboardPage />} />
+          <Route path="faqs" element={<FAQs />} /> {/* ✅ must be here */}
         </Route>
 
         {/* Catch-all */}

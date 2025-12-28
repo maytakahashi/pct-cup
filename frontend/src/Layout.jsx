@@ -112,7 +112,10 @@ export default function Layout() {
             {/* Row 1 (mobile): title + username pill */}
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <Link to="/dashboard" className="text-base font-semibold tracking-tight text-white whitespace-nowrap">
+                <Link
+                  to="/dashboard"
+                  className="text-base font-semibold tracking-tight text-white whitespace-nowrap"
+                >
                   PCT Cup
                 </Link>
 
@@ -137,6 +140,7 @@ export default function Layout() {
                 <NavLink to="/dashboard">Dashboard</NavLink>
                 <NavLink to="/calendar">Calendar</NavLink>
                 <NavLink to="/leaderboard">Leaderboard</NavLink>
+                <NavLink to="/faqs">FAQs</NavLink> {/* ✅ ADD */}
 
                 <span className="mx-1 hidden h-5 w-px bg-white/10 sm:block" />
                 <button
@@ -158,7 +162,9 @@ export default function Layout() {
         {me && !isAdmin && window.location.pathname.startsWith("/admin") ? (
           <div className="rounded-2xl border border-white/10 bg-white/6 p-6 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur">
             <div className="text-sm text-slate-300">Restricted</div>
-            <div className="mt-1 text-xl font-semibold">Admin pages aren’t available on this account.</div>
+            <div className="mt-1 text-xl font-semibold">
+              Admin pages aren’t available on this account.
+            </div>
             <div className="mt-4">
               <Link
                 to="/dashboard"
