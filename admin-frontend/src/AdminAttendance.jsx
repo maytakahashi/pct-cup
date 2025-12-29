@@ -3,29 +3,58 @@ import { useNavigate } from "react-router-dom";
 import { api } from "./api";
 
 function normalize(str) {
-  return String(str ?? "")
-    .toLowerCase()
-    .trim();
-}
-
-function groupByTeam(roster) {
-  const map = new Map();
-  for (const u of roster) {
-    const key = u.teamId ?? 0;
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(u);
-  }
-  for (const [k, arr] of map.entries()) {
-    arr.sort((a, b) => a.name.localeCompare(b.name));
-    map.set(k, arr);
-  }
-  return map;
+  return String(str ?? "").toLowerCase().trim();
 }
 
 function setsEqual(a, b) {
   if (a.size !== b.size) return false;
   for (const v of a) if (!b.has(v)) return false;
   return true;
+}
+
+function alphaKeyForUser(u) {
+  const last = String(u?.lastName ?? "").trim();
+  const name = String(u?.name ?? "").trim();
+  const ch = (last[0] || name[0] || "?").toUpperCase();
+  return /[A-Z]/.test(ch) ? ch : "#";
+}
+
+function sortUsersAlpha(a, b) {
+  const aLast = String(a?.lastName ?? "").trim();
+  const bLast = String(b?.lastName ?? "").trim();
+  const aFirst = String(a?.firstName ?? "").trim();
+  const bFirst = String(b?.firstName ?? "").trim();
+
+  return (
+    aLast.localeCompare(bLast) ||
+    aFirst.localeCompare(bFirst) ||
+    String(a?.username ?? "").localeCompare(String(b?.username ?? "")) ||
+    String(a?.name ?? "").localeCompare(String(b?.name ?? ""))
+  );
+}
+
+function groupByAlpha(users) {
+  const sorted = [...users].sort(sortUsersAlpha);
+
+  const map = new Map();
+  for (const u of sorted) {
+    const k = alphaKeyForUser(u);
+    if (!map.has(k)) map.set(k, []);
+    map.get(k).push(u);
+  }
+
+  const keys = Array.from(map.keys()).sort((a, b) => {
+    if (a === "#") return 1;
+    if (b === "#") return -1;
+    return a.localeCompare(b);
+  });
+
+  return keys.map((k) => ({ key: k, users: map.get(k) }));
+}
+
+function jumpToAlpha(key) {
+  const el = document.getElementById(`alpha-${key}`);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 export default function AdminAttendance() {
@@ -36,7 +65,7 @@ export default function AdminAttendance() {
   const [selectedEventId, setSelectedEventId] = useState("");
 
   const [presentSet, setPresentSet] = useState(() => new Set());
-  const initialPresentRef = useRef(new Set()); // used for dirty check
+  const initialPresentRef = useRef(new Set()); // dirty baseline
 
   const [query, setQuery] = useState("");
 
@@ -46,7 +75,10 @@ export default function AdminAttendance() {
   const [err, setErr] = useState(null);
   const [savedMsg, setSavedMsg] = useState(null);
 
-  const dirty = useMemo(() => !setsEqual(presentSet, initialPresentRef.current), [presentSet]);
+  const dirty = useMemo(
+    () => !setsEqual(presentSet, initialPresentRef.current),
+    [presentSet]
+  );
 
   async function loadAll() {
     setErr(null);
@@ -59,7 +91,7 @@ export default function AdminAttendance() {
 
       setEvents(eventsRes.data);
 
-      // normalize roster shape: ensure { id, username, firstName, lastName, teamId, name }
+      // normalize roster shape
       const normalizedRoster = (rosterRes.data ?? []).map((u) => {
         const first = u.firstName ?? "";
         const last = u.lastName ?? "";
@@ -98,7 +130,7 @@ export default function AdminAttendance() {
       const ids = res.data?.presentUserIds ?? [];
       const next = new Set(ids);
       setPresentSet(next);
-      initialPresentRef.current = next; // reset dirty baseline
+      initialPresentRef.current = next;
     } catch (e) {
       const status = e?.response?.status;
       if (status === 401) nav("/login");
@@ -140,7 +172,19 @@ export default function AdminAttendance() {
     });
   }, [roster, query]);
 
-  const rosterByTeam = useMemo(() => groupByTeam(filteredRoster), [filteredRoster]);
+  const alphaGroups = useMemo(() => groupByAlpha(filteredRoster), [filteredRoster]);
+
+  const availableAlphaKeys = useMemo(
+    () => alphaGroups.map((g) => g.key),
+    [alphaGroups]
+  );
+
+  const alphabet = useMemo(() => {
+    const letters = [];
+    for (let i = 65; i <= 90; i++) letters.push(String.fromCharCode(i)); // A-Z
+    letters.push("#");
+    return letters;
+  }, []);
 
   function toggleUser(userId) {
     setSavedMsg(null);
@@ -152,11 +196,11 @@ export default function AdminAttendance() {
     });
   }
 
-  function setTeamAll(teamUsers, value) {
+  function setMany(users, value) {
     setSavedMsg(null);
     setPresentSet((prev) => {
       const next = new Set(prev);
-      for (const u of teamUsers) {
+      for (const u of users) {
         if (value) next.add(u.id);
         else next.delete(u.id);
       }
@@ -171,10 +215,10 @@ export default function AdminAttendance() {
     setSaving(true);
     try {
       const presentUserIds = Array.from(presentSet.values());
-      await api.post(`/admin/events/${selectedEventId}/attendance`, { presentUserIds });
+      await api.post(`/admin/events/${selectedEventId}/attendance`, {
+        presentUserIds,
+      });
       setSavedMsg(`Saved ${presentUserIds.length} present ✔`);
-
-      // update dirty baseline
       initialPresentRef.current = new Set(presentUserIds);
     } catch (e) {
       const status = e?.response?.status;
@@ -191,7 +235,9 @@ export default function AdminAttendance() {
       return;
     }
     if (dirty) {
-      const ok = window.confirm("You have unsaved changes for this event. Switch events and discard them?");
+      const ok = window.confirm(
+        "You have unsaved changes for this event. Switch events and discard them?"
+      );
       if (!ok) return;
     }
     setSelectedEventId(String(nextId));
@@ -212,7 +258,11 @@ export default function AdminAttendance() {
           <h1 className="text-2xl font-semibold">Attendance</h1>
           <p className="mt-1 text-sm text-zinc-600">
             Pick an event, then mark who was present.
-            {dirty && <span className="ml-2 font-semibold text-amber-700">Unsaved changes</span>}
+            {dirty && (
+              <span className="ml-2 font-semibold text-amber-700">
+                Unsaved changes
+              </span>
+            )}
           </p>
         </div>
 
@@ -241,7 +291,9 @@ export default function AdminAttendance() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <label className="block w-full sm:max-w-md">
-          <div className="mb-1 text-xs font-medium text-zinc-600">Search roster</div>
+          <div className="mb-1 text-xs font-medium text-zinc-600">
+            Search roster
+          </div>
           <input
             className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:ring-2 focus:ring-zinc-400"
             placeholder="Type a name or username…"
@@ -250,8 +302,32 @@ export default function AdminAttendance() {
           />
         </label>
 
-        <div className="text-sm text-zinc-700">
-          Marked present: <span className="font-semibold text-zinc-900">{presentSet.size}</span>
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-zinc-700">
+            Marked present:{" "}
+            <span className="font-semibold text-zinc-900">
+              {presentSet.size}
+            </span>
+          </div>
+
+          <span className="hidden h-6 w-px bg-zinc-200 sm:block" />
+
+          <button
+            onClick={() => setMany(filteredRoster, true)}
+            disabled={loadingAttendance || filteredRoster.length === 0}
+            className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-100 disabled:opacity-50"
+            title="Marks everyone in the current filtered roster as present"
+          >
+            All present
+          </button>
+          <button
+            onClick={() => setMany(filteredRoster, false)}
+            disabled={loadingAttendance || filteredRoster.length === 0}
+            className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-100 disabled:opacity-50"
+            title="Clears everyone in the current filtered roster"
+          >
+            Clear
+          </button>
         </div>
       </div>
 
@@ -273,59 +349,84 @@ export default function AdminAttendance() {
               <div className="text-sm text-zinc-500">Selected event</div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <div className="font-semibold text-zinc-900">{selectedEvent.title}</div>
+                <div className="font-semibold text-zinc-900">
+                  {selectedEvent.title}
+                </div>
                 {selectedEvent.category?.key === "INTERNAL" && (
                   <span className="inline-flex items-center rounded-full border border-zinc-300 bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-800">
                     Mandatory
                   </span>
                 )}
-                {loadingAttendance && <span className="text-xs text-zinc-500">Loading attendance…</span>}
+                {loadingAttendance && (
+                  <span className="text-xs text-zinc-500">
+                    Loading attendance…
+                  </span>
+                )}
               </div>
 
               <div className="text-sm text-zinc-600">
                 {new Date(selectedEvent.startsAt).toLocaleString()}
-                {selectedEvent.category?.name ? ` · ${selectedEvent.category.name}` : ""}
+                {selectedEvent.category?.name
+                  ? ` · ${selectedEvent.category.name}`
+                  : ""}
               </div>
             </div>
 
             <div className="text-xs text-zinc-500">
-              {query ? `Filtered roster: ${filteredRoster.length}` : `Roster: ${roster.length}`}
+              {query
+                ? `Filtered roster: ${filteredRoster.length}`
+                : `Roster: ${roster.length}`}
             </div>
           </div>
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {Array.from(rosterByTeam.entries())
-          .sort(([a], [b]) => Number(a) - Number(b))
-          .map(([teamId, teamUsers]) => (
-            <div key={teamId} className="rounded-2xl border border-zinc-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
-                <div className="font-semibold text-zinc-900">
-                  Team {teamId === 0 ? "?" : teamId}{" "}
-                  <span className="text-xs font-normal text-zinc-500">({teamUsers.length})</span>
-                </div>
+      {/* Alphabetical roster + jump bar */}
+      <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3">
+          <div className="font-semibold text-zinc-900">Roster</div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setTeamAll(teamUsers, true)}
-                    disabled={loadingAttendance}
-                    className="rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-900 hover:bg-zinc-100 disabled:opacity-50"
-                  >
-                    All present
-                  </button>
-                  <button
-                    onClick={() => setTeamAll(teamUsers, false)}
-                    disabled={loadingAttendance}
-                    className="rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-900 hover:bg-zinc-100 disabled:opacity-50"
-                  >
-                    Clear
-                  </button>
+          <div className="flex flex-wrap gap-1">
+            {alphabet.map((ch) => {
+              const enabled = availableAlphaKeys.includes(ch);
+              return (
+                <button
+                  key={ch}
+                  type="button"
+                  onClick={() => enabled && jumpToAlpha(ch)}
+                  disabled={!enabled}
+                  className={[
+                    "h-7 w-7 rounded-lg text-xs font-semibold",
+                    enabled
+                      ? "border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100"
+                      : "border border-zinc-200 bg-zinc-50 text-zinc-300 cursor-not-allowed",
+                  ].join(" ")}
+                  title={enabled ? `Jump to ${ch}` : `No ${ch} names in roster`}
+                >
+                  {ch}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="max-h-[720px] overflow-auto p-2">
+          {alphaGroups.map((g) => (
+            <div key={g.key} className="mb-3">
+              <div
+                id={`alpha-${g.key}`}
+                className="sticky top-0 z-10 -mx-2 px-4 py-2 bg-white/95 backdrop-blur border-b border-zinc-100"
+              >
+                <div className="text-xs font-semibold text-zinc-600">
+                  {g.key}{" "}
+                  <span className="font-normal text-zinc-400">
+                    ({g.users.length})
+                  </span>
                 </div>
               </div>
 
-              <div className="max-h-[520px] overflow-auto p-2">
-                {teamUsers.map((u) => {
+              <div className="pt-2">
+                {g.users.map((u) => {
                   const checked = presentSet.has(u.id);
                   return (
                     <label
@@ -333,8 +434,12 @@ export default function AdminAttendance() {
                       className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2 hover:bg-zinc-50"
                     >
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-zinc-900">{u.name}</div>
-                        <div className="truncate text-xs text-zinc-500">{u.username}</div>
+                        <div className="truncate text-sm font-medium text-zinc-900">
+                          {u.name}
+                        </div>
+                        <div className="truncate text-xs text-zinc-500">
+                          {u.username}
+                        </div>
                       </div>
 
                       <input
@@ -347,13 +452,16 @@ export default function AdminAttendance() {
                     </label>
                   );
                 })}
-
-                {!teamUsers.length && (
-                  <div className="px-3 py-6 text-sm text-zinc-600">No matches in this team.</div>
-                )}
               </div>
             </div>
           ))}
+
+          {filteredRoster.length === 0 && (
+            <div className="px-3 py-6 text-sm text-zinc-600">
+              No matches.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
