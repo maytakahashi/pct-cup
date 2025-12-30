@@ -1,4 +1,3 @@
-// backend/src/server.js
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -63,7 +62,7 @@ app.post("/auth/login", async (req, res) => {
 
   const { username, password } = parsed.data;
 
-  const user = await prisma.user.findUnique({ where: { username } });
+  const user = await prisma.user.findFirst({ where: { username, deletedAt: null } });
   if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
   const ok = await bcrypt.compare(password, user.passwordHash);
@@ -423,7 +422,7 @@ app.get("/schedule", requireUser, async (req, res) => {
 // ---------- ADMIN: ROSTER ----------
 app.get("/admin/roster", requireUser, requireAdmin, async (req, res) => {
   const users = await prisma.user.findMany({
-    where: { role: "BRO" },
+    where: { role: "BRO", deletedAt: null },
     select: {
       id: true,
       firstName: true,

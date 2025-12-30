@@ -18,6 +18,8 @@ async function main() {
     select: { id: true, username: true, teamId: true, deletedAt: true },
   });
 
+  await prisma.session.deleteMany({ where: { userId } });
+
   console.log("Soft-removed:", updated);
 }
 
