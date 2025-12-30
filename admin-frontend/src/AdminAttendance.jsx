@@ -57,6 +57,52 @@ function jumpToAlpha(key) {
   if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+function slugifyFilename(s) {
+  return String(s ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80);
+}
+
+function fmtDateForFilename(d) {
+  try {
+    const dt = new Date(d);
+    if (Number.isNaN(dt.getTime())) return "unknown_date";
+    const yyyy = String(dt.getFullYear());
+    const mm = String(dt.getMonth() + 1).padStart(2, "0");
+    const dd = String(dt.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  } catch {
+    return "unknown_date";
+  }
+}
+
+function downloadTextFile(filename, text, mime = "text/plain;charset=utf-8") {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function fullName(u) {
+  // Prefer explicit first/last; fall back to u.name; fall back to username.
+  const first = String(u?.firstName ?? "").trim();
+  const last = String(u?.lastName ?? "").trim();
+  const combined = `${first} ${last}`.trim();
+  if (combined) return combined;
+
+  const name = String(u?.name ?? "").trim();
+  if (name) return name;
+
+  return String(u?.username ?? "").trim();
+}
+
 export default function AdminAttendance() {
   const nav = useNavigate();
 
@@ -75,10 +121,7 @@ export default function AdminAttendance() {
   const [err, setErr] = useState(null);
   const [savedMsg, setSavedMsg] = useState(null);
 
-  const dirty = useMemo(
-    () => !setsEqual(presentSet, initialPresentRef.current),
-    [presentSet]
-  );
+  const dirty = !setsEqual(presentSet, initialPresentRef.current);
 
   async function loadAll() {
     setErr(null);
@@ -167,12 +210,17 @@ export default function AdminAttendance() {
     const q = normalize(query);
     if (!q) return roster;
     return roster.filter((u) => {
-      const blob = normalize(`${u.name} ${u.username} ${u.firstName} ${u.lastName}`);
+      const blob = normalize(
+        `${fullName(u)} ${u.username} ${u.firstName} ${u.lastName}`
+      );
       return blob.includes(q);
     });
   }, [roster, query]);
 
-  const alphaGroups = useMemo(() => groupByAlpha(filteredRoster), [filteredRoster]);
+  const alphaGroups = useMemo(
+    () => groupByAlpha(filteredRoster),
+    [filteredRoster]
+  );
 
   const availableAlphaKeys = useMemo(
     () => alphaGroups.map((g) => g.key),
@@ -249,6 +297,58 @@ export default function AdminAttendance() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEventId]);
 
+  // ---------- TSV EXPORT (alphabetical) ----------
+  function buildAttendanceRows() {
+    // Export FULL roster, alphabetical
+    const sorted = [...roster].sort(sortUsersAlpha);
+
+    // X for present, AB for absent
+    return sorted.map((u) => {
+      const mark = presentSet.has(u.id) ? "X" : "AB";
+      return {
+        name: fullName(u),
+        mark,
+      };
+    });
+  }
+
+  async function copyTSV() {
+    if (!selectedEvent) return;
+
+    const rows = buildAttendanceRows();
+
+    const lines = [
+      ...rows.map((r) => [r.name, r.mark].join("\t")),
+    ];
+
+    await navigator.clipboard.writeText(lines.join("\n"));
+    setSavedMsg(`Copied attendance table to clipboard ✔`);
+  }
+
+  function downloadTSV() {
+    if (!selectedEvent) return;
+
+    const rows = buildAttendanceRows();
+    const header = ["Name", "Attendance"];
+
+    const lines = [
+      header.join("\t"),
+      ...rows.map((r) => [r.name, r.mark].join("\t")),
+    ];
+
+    const datePart = fmtDateForFilename(selectedEvent.startsAt);
+    const titlePart = slugifyFilename(selectedEvent.title);
+    const filename = `attendance_${datePart}_${titlePart}.tsv`;
+
+    downloadTextFile(
+      filename,
+      lines.join("\n"),
+      "text/tab-separated-values;charset=utf-8"
+    );
+    setSavedMsg(`Downloaded TSV ✔`);
+  }
+  // --------------------------------------------
+
   if (loading) return <div className="text-sm text-zinc-600">Loading…</div>;
 
   return (
@@ -286,6 +386,29 @@ export default function AdminAttendance() {
           >
             {saving ? "Saving…" : "Save"}
           </button>
+
+          {/* TSV export */}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={copyTSV}
+              disabled={!selectedEvent || loadingAttendance}
+              className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-100 disabled:opacity-50"
+              title="Copy TSV (alphabetical): Attendance = X (present) / AB (absent)"
+            >
+              Copy Table
+            </button>
+
+            <button
+              type="button"
+              onClick={downloadTSV}
+              disabled={!selectedEvent || loadingAttendance}
+              className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-100 disabled:opacity-50"
+              title="Download TSV (alphabetical): Attendance = X (present) / AB (absent)"
+            >
+              Download Table
+            </button>
+          </div>
         </div>
       </div>
 
@@ -410,7 +533,7 @@ export default function AdminAttendance() {
           </div>
         </div>
 
-        <div className="max-h-[720px] overflow-auto p-2">
+        <div className="max-h-[460px] overflow-auto p-2">
           {alphaGroups.map((g) => (
             <div key={g.key} className="mb-3">
               <div
@@ -435,7 +558,7 @@ export default function AdminAttendance() {
                     >
                       <div className="min-w-0">
                         <div className="truncate text-sm font-medium text-zinc-900">
-                          {u.name}
+                          {fullName(u)}
                         </div>
                         <div className="truncate text-xs text-zinc-500">
                           {u.username}
@@ -457,9 +580,7 @@ export default function AdminAttendance() {
           ))}
 
           {filteredRoster.length === 0 && (
-            <div className="px-3 py-6 text-sm text-zinc-600">
-              No matches.
-            </div>
+            <div className="px-3 py-6 text-sm text-zinc-600">No matches.</div>
           )}
         </div>
       </div>
