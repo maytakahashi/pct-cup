@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 
 const CATEGORY_KEYS = [
@@ -71,6 +71,225 @@ function normalizeCategoryKey(ev) {
   return ev?.category?.key || ev?.categoryKey || null;
 }
 
+function EventList({
+  title,
+  items,
+  drafts,
+  openId,
+  busyId,
+  isDirty,
+  updateDraft,
+  resetDraft,
+  saveEvent,
+  removeEvent,
+  toggleOpen,
+  listRef,
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <div className="border-b border-zinc-200 px-4 py-2.5">
+        <div className="text-sm font-semibold">
+          {title}{" "}
+          <span className="font-normal text-zinc-500">({items.length})</span>
+        </div>
+      </div>
+
+      {/* ✅ This is the scroll container that should NOT reset to top */}
+      <div ref={listRef} className="max-h-[550px] overflow-auto">
+        {items.map((ev) => {
+          const d =
+            drafts[ev.id] || {
+              title: ev.title ?? "",
+              startsAt: toLocalInputValue(ev.startsAt),
+              categoryKey: normalizeCategoryKey(ev) ?? "INTERNAL",
+              serviceHours:
+                ev.serviceHours != null ? String(ev.serviceHours) : "",
+            };
+
+          const dirty = isDirty(ev.id);
+          const open = openId === ev.id;
+          const busy = busyId === ev.id;
+          const catKey = normalizeCategoryKey(ev) ?? "CASUAL";
+
+          return (
+            <div key={ev.id} className="border-b border-zinc-100">
+              {/* Row header (more compact) */}
+              <div className="flex items-start justify-between gap-3 px-4 py-2.5">
+                <button
+                  type="button"
+                  onClick={() => toggleOpen(ev.id)}
+                  className="group flex min-w-0 flex-1 items-start justify-between gap-3 rounded-xl px-2 py-1 text-left hover:bg-zinc-50"
+                  aria-expanded={open}
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="truncate font-medium text-zinc-900">
+                        {ev.title}
+                      </div>
+                      <span
+                        className="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold"
+                        style={badgeStyle(catKey)}
+                      >
+                        {catKey}
+                      </span>
+                      {ev.mandatory && (
+                        <span className="inline-flex shrink-0 items-center rounded-full bg-zinc-900 px-2 py-0.5 text-[11px] font-semibold text-white">
+                          Mandatory
+                        </span>
+                      )}
+                      {ev.serviceHours ? (
+                        <span className="inline-flex shrink-0 items-center rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] font-semibold text-zinc-700">
+                          {ev.serviceHours} hr
+                        </span>
+                      ) : null}
+                      {dirty ? (
+                        <span className="inline-flex shrink-0 items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                          Unsaved
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-0.5 text-sm text-zinc-600">
+                      {new Date(ev.startsAt).toLocaleString()} · ID {ev.id}
+                    </div>
+                  </div>
+
+                  <div className="mt-0.5 shrink-0 text-xs font-semibold text-zinc-500">
+                    {open ? "Hide" : "Edit"}
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => removeEvent(ev.id)}
+                  disabled={busy}
+                  className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                >
+                  {busy ? "…" : "Delete"}
+                </button>
+              </div>
+
+              {/* Dropdown editor */}
+              {open && (
+                <div className="px-6 pb-3">
+                  <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="block">
+                        <div className="mb-1 text-xs font-semibold text-zinc-700">
+                          Title
+                        </div>
+                        <input
+                          className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
+                          value={d.title}
+                          onChange={(e) =>
+                            updateDraft(ev.id, { title: e.target.value })
+                          }
+                        />
+                      </label>
+
+                      <label className="block">
+                        <div className="mb-1 text-xs font-semibold text-zinc-700">
+                          Starts at
+                        </div>
+                        <input
+                          type="datetime-local"
+                          className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
+                          value={d.startsAt}
+                          onChange={(e) =>
+                            updateDraft(ev.id, { startsAt: e.target.value })
+                          }
+                        />
+                      </label>
+
+                      <label className="block">
+                        <div className="mb-1 text-xs font-semibold text-zinc-700">
+                          Category
+                        </div>
+                        <select
+                          className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
+                          value={d.categoryKey}
+                          onChange={(e) =>
+                            updateDraft(ev.id, { categoryKey: e.target.value })
+                          }
+                        >
+                          {CATEGORY_KEYS.map((k) => (
+                            <option key={k} value={k}>
+                              {k}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="mt-1 text-xs text-zinc-500">
+                          INTERNAL ⇒ mandatory automatically.
+                        </div>
+                      </label>
+
+                      <div className="block">
+                        <div className="mb-1 text-xs font-semibold text-zinc-700">
+                          Service hours
+                        </div>
+                        <input
+                          type="number"
+                          step="1"
+                          min="1"
+                          disabled={d.categoryKey !== "SERVICE"}
+                          className={[
+                            "w-full rounded-xl border px-3 py-2 text-sm text-zinc-900",
+                            d.categoryKey === "SERVICE"
+                              ? "border-zinc-300 bg-white"
+                              : "border-zinc-200 bg-zinc-100 text-zinc-400",
+                          ].join(" ")}
+                          value={d.serviceHours}
+                          onChange={(e) =>
+                            updateDraft(ev.id, { serviceHours: e.target.value })
+                          }
+                          placeholder={
+                            d.categoryKey === "SERVICE" ? "e.g. 2" : "N/A"
+                          }
+                        />
+                        <div className="mt-1 text-xs text-zinc-500">
+                          Only applies to SERVICE.
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between gap-3">
+                      <div className="text-xs text-zinc-500">
+                        {dirty ? "Unsaved changes" : "Up to date"}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => resetDraft(ev.id)}
+                          disabled={!dirty || busy}
+                          className="rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+                        >
+                          Reset
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => saveEvent(ev.id)}
+                          disabled={!dirty || busy}
+                          className="rounded-xl bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-40"
+                        >
+                          {busy ? "Saving…" : "Save"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {!items.length && (
+          <div className="px-4 py-6 text-sm text-zinc-600">No events.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminEvents() {
   const [events, setEvents] = useState([]);
   const [err, setErr] = useState(null);
@@ -92,6 +311,9 @@ export default function AdminEvents() {
 
   // ✅ tabs so the page stays short (no need to scroll)
   const [activeList, setActiveList] = useState("upcoming"); // "upcoming" | "past"
+
+  // ✅ stable ref to the scrollbox so we can preserve scrollTop when opening/closing
+  const listRef = useRef(null);
 
   const eventIndex = useMemo(() => {
     const m = new Map();
@@ -265,8 +487,15 @@ export default function AdminEvents() {
     }));
   }
 
+  // ✅ Preserve scrollbox position when opening/closing an event
   function toggleOpen(id) {
+    const top = listRef.current?.scrollTop ?? 0;
+
     setOpenId((cur) => (cur === id ? null : id));
+
+    requestAnimationFrame(() => {
+      if (listRef.current) listRef.current.scrollTop = top;
+    });
   }
 
   // Split based on current date AND time
@@ -290,189 +519,21 @@ export default function AdminEvents() {
 
   // If you’re on Upcoming but there are none (or vice versa), auto-swap to a non-empty tab.
   useEffect(() => {
-    if (activeList === "upcoming" && upcomingEvents.length === 0 && pastEvents.length > 0) {
+    if (
+      activeList === "upcoming" &&
+      upcomingEvents.length === 0 &&
+      pastEvents.length > 0
+    ) {
       setActiveList("past");
-    } else if (activeList === "past" && pastEvents.length === 0 && upcomingEvents.length > 0) {
+    } else if (
+      activeList === "past" &&
+      pastEvents.length === 0 &&
+      upcomingEvents.length > 0
+    ) {
       setActiveList("upcoming");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [upcomingEvents.length, pastEvents.length]);
-
-  function EventList({ title, items }) {
-    return (
-      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-        <div className="border-b border-zinc-200 px-4 py-2.5">
-          <div className="text-sm font-semibold">
-            {title}{" "}
-            <span className="font-normal text-zinc-500">({items.length})</span>
-          </div>
-        </div>
-
-        <div className="max-h-[550px] overflow-auto">
-          {items.map((ev) => {
-            const d =
-              drafts[ev.id] || {
-                title: ev.title ?? "",
-                startsAt: toLocalInputValue(ev.startsAt),
-                categoryKey: normalizeCategoryKey(ev) ?? "INTERNAL",
-                serviceHours: ev.serviceHours != null ? String(ev.serviceHours) : "",
-              };
-
-            const dirty = isDirty(ev.id);
-            const open = openId === ev.id;
-            const busy = busyId === ev.id;
-            const catKey = normalizeCategoryKey(ev) ?? "CASUAL";
-
-            return (
-              <div key={ev.id} className="border-b border-zinc-100">
-                {/* Row header (more compact) */}
-                <div className="flex items-start justify-between gap-3 px-4 py-2.5">
-                  <button
-                    type="button"
-                    onClick={() => toggleOpen(ev.id)}
-                    className="group flex min-w-0 flex-1 items-start justify-between gap-3 rounded-xl px-2 py-1 text-left hover:bg-zinc-50"
-                    aria-expanded={open}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="truncate font-medium text-zinc-900">{ev.title}</div>
-                        <span
-                          className="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold"
-                          style={badgeStyle(catKey)}
-                        >
-                          {catKey}
-                        </span>
-                        {ev.mandatory && (
-                          <span className="inline-flex shrink-0 items-center rounded-full bg-zinc-900 px-2 py-0.5 text-[11px] font-semibold text-white">
-                            Mandatory
-                          </span>
-                        )}
-                        {ev.serviceHours ? (
-                          <span className="inline-flex shrink-0 items-center rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] font-semibold text-zinc-700">
-                            {ev.serviceHours} hr
-                          </span>
-                        ) : null}
-                        {dirty ? (
-                          <span className="inline-flex shrink-0 items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-                            Unsaved
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <div className="mt-0.5 text-sm text-zinc-600">
-                        {new Date(ev.startsAt).toLocaleString()} · ID {ev.id}
-                      </div>
-                    </div>
-
-                    <div className="mt-0.5 shrink-0 text-xs font-semibold text-zinc-500">
-                      {open ? "Hide" : "Edit"}
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => removeEvent(ev.id)}
-                    disabled={busy}
-                    className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
-                  >
-                    {busy ? "…" : "Delete"}
-                  </button>
-                </div>
-
-                {/* Dropdown editor */}
-                {open && (
-                  <div className="px-6 pb-3">
-                    <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-                      <div className="grid gap-3 md:grid-cols-2">
-                        <label className="block">
-                          <div className="mb-1 text-xs font-semibold text-zinc-700">Title</div>
-                          <input
-                            className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
-                            value={d.title}
-                            onChange={(e) => updateDraft(ev.id, { title: e.target.value })}
-                          />
-                        </label>
-
-                        <label className="block">
-                          <div className="mb-1 text-xs font-semibold text-zinc-700">Starts at</div>
-                          <input
-                            type="datetime-local"
-                            className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
-                            value={d.startsAt}
-                            onChange={(e) => updateDraft(ev.id, { startsAt: e.target.value })}
-                          />
-                        </label>
-
-                        <label className="block">
-                          <div className="mb-1 text-xs font-semibold text-zinc-700">Category</div>
-                          <select
-                            className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
-                            value={d.categoryKey}
-                            onChange={(e) => updateDraft(ev.id, { categoryKey: e.target.value })}
-                          >
-                            {CATEGORY_KEYS.map((k) => (
-                              <option key={k} value={k}>
-                                {k}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="mt-1 text-xs text-zinc-500">INTERNAL ⇒ mandatory automatically.</div>
-                        </label>
-
-                        <div className="block">
-                          <div className="mb-1 text-xs font-semibold text-zinc-700">Service hours</div>
-                          <input
-                            type="number"
-                            step="1"
-                            min="1"
-                            disabled={d.categoryKey !== "SERVICE"}
-                            className={[
-                              "w-full rounded-xl border px-3 py-2 text-sm text-zinc-900",
-                              d.categoryKey === "SERVICE"
-                                ? "border-zinc-300 bg-white"
-                                : "border-zinc-200 bg-zinc-100 text-zinc-400",
-                            ].join(" ")}
-                            value={d.serviceHours}
-                            onChange={(e) => updateDraft(ev.id, { serviceHours: e.target.value })}
-                            placeholder={d.categoryKey === "SERVICE" ? "e.g. 2" : "N/A"}
-                          />
-                          <div className="mt-1 text-xs text-zinc-500">Only applies to SERVICE.</div>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex items-center justify-between gap-3">
-                        <div className="text-xs text-zinc-500">{dirty ? "Unsaved changes" : "Up to date"}</div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => resetDraft(ev.id)}
-                            disabled={!dirty || busy}
-                            className="rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-                          >
-                            Reset
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => saveEvent(ev.id)}
-                            disabled={!dirty || busy}
-                            className="rounded-xl bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-40"
-                          >
-                            {busy ? "Saving…" : "Save"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {!items.length && <div className="px-4 py-6 text-sm text-zinc-600">No events.</div>}
-        </div>
-      </div>
-    );
-  }
 
   const showing = activeList === "upcoming" ? upcomingEvents : pastEvents;
 
@@ -481,11 +542,15 @@ export default function AdminEvents() {
       <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
         <div className="text-sm text-zinc-500">Admin</div>
         <div className="text-xl font-semibold">Events</div>
-        <div className="mt-1 text-sm text-zinc-600">Edit event title/time/category in the dropdown per row.</div>
+        <div className="mt-1 text-sm text-zinc-600">
+          Edit event title/time/category in the dropdown per row.
+        </div>
       </div>
 
       {err && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {err}
+        </div>
       )}
       {ok && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
@@ -495,7 +560,10 @@ export default function AdminEvents() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {/* ✅ slightly more compact create form */}
-        <form onSubmit={create} className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+        <form
+          onSubmit={create}
+          className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+        >
           <div className="text-sm font-semibold">Create event</div>
 
           <label className="block">
@@ -536,7 +604,9 @@ export default function AdminEvents() {
 
           {categoryKey === "SERVICE" && (
             <label className="block">
-              <div className="mb-1 text-sm text-zinc-700">Service hours (whole number)</div>
+              <div className="mb-1 text-sm text-zinc-700">
+                Service hours (whole number)
+              </div>
               <input
                 type="number"
                 step="1"
@@ -546,7 +616,9 @@ export default function AdminEvents() {
                 onChange={(e) => setServiceHours(e.target.value)}
                 required
               />
-              <div className="mt-1 text-xs text-zinc-500">Whole numbers only.</div>
+              <div className="mt-1 text-xs text-zinc-500">
+                Whole numbers only.
+              </div>
             </label>
           )}
 
@@ -568,7 +640,10 @@ export default function AdminEvents() {
                   : "border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50",
               ].join(" ")}
             >
-              Upcoming <span className="ml-1 text-xs opacity-80">({upcomingEvents.length})</span>
+              Upcoming{" "}
+              <span className="ml-1 text-xs opacity-80">
+                ({upcomingEvents.length})
+              </span>
             </button>
             <button
               type="button"
@@ -580,11 +655,27 @@ export default function AdminEvents() {
                   : "border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50",
               ].join(" ")}
             >
-              Past <span className="ml-1 text-xs opacity-80">({pastEvents.length})</span>
+              Past{" "}
+              <span className="ml-1 text-xs opacity-80">
+                ({pastEvents.length})
+              </span>
             </button>
           </div>
 
-          <EventList title={activeList === "upcoming" ? "Upcoming events" : "Past events"} items={showing} />
+          <EventList
+            title={activeList === "upcoming" ? "Upcoming events" : "Past events"}
+            items={showing}
+            drafts={drafts}
+            openId={openId}
+            busyId={busyId}
+            isDirty={isDirty}
+            updateDraft={updateDraft}
+            resetDraft={resetDraft}
+            saveEvent={saveEvent}
+            removeEvent={removeEvent}
+            toggleOpen={toggleOpen}
+            listRef={listRef}
+          />
         </div>
       </div>
     </div>
