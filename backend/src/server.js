@@ -1,3 +1,4 @@
+// backend/src/server.js
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -62,7 +63,10 @@ app.post("/auth/login", async (req, res) => {
 
   const { username, password } = parsed.data;
 
-  const user = await prisma.user.findFirst({ where: { username, deletedAt: null } });
+  // ✅ Soft-deleted users cannot login
+  const user = await prisma.user.findFirst({
+    where: { username, deletedAt: null },
+  });
   if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
   const ok = await bcrypt.compare(password, user.passwordHash);
@@ -245,6 +249,27 @@ function doesUserMeetCheckpoint({ cats, reqsMap, classType, completedMap }) {
   return true;
 }
 
+// ✅ Get the real classType values from your DB (prevents enum mismatch bugs)
+async function getValidClassTypes() {
+  // Prefer Users table (source of truth for who exists)
+  const rows = await prisma.user.findMany({
+    where: { deletedAt: null },
+    distinct: ["classType"],
+    select: { classType: true },
+  });
+
+  const fromUsers = rows.map((r) => r.classType).filter(Boolean);
+
+  // Also include anything already in requirements (in case users are empty in dev)
+  const reqRows = await prisma.requirement.findMany({
+    distinct: ["classType"],
+    select: { classType: true },
+  });
+  const fromReqs = reqRows.map((r) => r.classType).filter(Boolean);
+
+  return Array.from(new Set([...fromUsers, ...fromReqs]));
+}
+
 // ---------- BULK ATTENDANCE AGGREGATION (perf: avoid N+1) ----------
 /**
  * Returns a Map:
@@ -289,7 +314,8 @@ app.get("/dashboard/me", requireUser, async (req, res) => {
     ? await prisma.checkpoint.findUnique({ where: { number: requested } })
     : await getNextCheckpoint();
 
-  if (!cp) return res.status(404).json({ error: "No upcoming checkpoint found" });
+  if (!cp)
+    return res.status(404).json({ error: "No upcoming checkpoint found" });
 
   const cpEnd = new Date(cp.endDate);
 
@@ -400,7 +426,9 @@ app.get("/dashboard/team", requireUser, async (req, res) => {
 // ---------- SCHEDULE ----------
 app.get("/schedule", requireUser, async (req, res) => {
   const events = await prisma.event.findMany({
-    where: { startsAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+    where: {
+      startsAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+    },
     include: { category: true },
     orderBy: { startsAt: "asc" },
   });
@@ -451,15 +479,21 @@ app.get("/admin/checkpoints", requireUser, requireAdmin, async (req, res) => {
   res.json({ checkpoints });
 });
 
-app.get("/admin/checkpoints/:number", requireUser, requireAdmin, async (req, res) => {
-  const n = Number(req.params.number);
-  if (!Number.isFinite(n)) return res.status(400).json({ error: "Bad checkpoint number" });
+app.get(
+  "/admin/checkpoints/:number",
+  requireUser,
+  requireAdmin,
+  async (req, res) => {
+    const n = Number(req.params.number);
+    if (!Number.isFinite(n))
+      return res.status(400).json({ error: "Bad checkpoint number" });
 
-  const cp = await prisma.checkpoint.findUnique({ where: { number: n } });
-  if (!cp) return res.status(404).json({ error: "Checkpoint not found" });
+    const cp = await prisma.checkpoint.findUnique({ where: { number: n } });
+    if (!cp) return res.status(404).json({ error: "Checkpoint not found" });
 
-  res.json(cp);
-});
+    res.json(cp);
+  }
+);
 
 app.post("/admin/checkpoints", requireUser, requireAdmin, async (req, res) => {
   const schema = z.object({
@@ -494,66 +528,77 @@ app.post("/admin/checkpoints", requireUser, requireAdmin, async (req, res) => {
   }
 });
 
-app.put("/admin/checkpoints/:number", requireUser, requireAdmin, async (req, res) => {
-  const currentNumber = Number(req.params.number);
-  if (!Number.isFinite(currentNumber)) {
-    return res.status(400).json({ error: "Bad checkpoint number" });
-  }
-
-  const schema = z.object({
-    // if you want to renumber a checkpoint, pass newNumber
-    newNumber: z.number().int().positive().optional(),
-    label: z.string().min(1).optional(),
-    endDate: z.string().min(1).optional(),
-  });
-
-  const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "Bad input" });
-
-  const data = {};
-  if (parsed.data.label !== undefined) data.label = parsed.data.label;
-
-  if (parsed.data.endDate !== undefined) {
-    const endDateObj = new Date(parsed.data.endDate);
-    if (Number.isNaN(endDateObj.getTime())) {
-      return res.status(400).json({ error: "Invalid endDate" });
+app.put(
+  "/admin/checkpoints/:number",
+  requireUser,
+  requireAdmin,
+  async (req, res) => {
+    const currentNumber = Number(req.params.number);
+    if (!Number.isFinite(currentNumber)) {
+      return res.status(400).json({ error: "Bad checkpoint number" });
     }
-    data.endDate = endDateObj;
-  }
 
-  if (parsed.data.newNumber !== undefined) data.number = parsed.data.newNumber;
-
-  try {
-    const updated = await prisma.checkpoint.update({
-      where: { number: currentNumber },
-      data,
+    const schema = z.object({
+      // if you want to renumber a checkpoint, pass newNumber
+      newNumber: z.number().int().positive().optional(),
+      label: z.string().min(1).optional(),
+      endDate: z.string().min(1).optional(),
     });
-    res.json(updated);
-  } catch (e) {
-    res.status(400).json({
-      error:
-        "Failed to update checkpoint. (If renumbering, ensure newNumber is unique.)",
-      detail: String(e?.message ?? e),
-    });
-  }
-});
 
-app.delete("/admin/checkpoints/:number", requireUser, requireAdmin, async (req, res) => {
-  const n = Number(req.params.number);
-  if (!Number.isFinite(n)) return res.status(400).json({ error: "Bad checkpoint number" });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Bad input" });
 
-  try {
-    await prisma.checkpoint.delete({ where: { number: n } });
-    res.json({ ok: true });
-  } catch (e) {
-    // likely blocked by foreign keys (requirements referencing checkpointId)
-    res.status(400).json({
-      error:
-        "Failed to delete checkpoint. It may be referenced by requirements/other rows.",
-      detail: String(e?.message ?? e),
-    });
+    const data = {};
+    if (parsed.data.label !== undefined) data.label = parsed.data.label;
+
+    if (parsed.data.endDate !== undefined) {
+      const endDateObj = new Date(parsed.data.endDate);
+      if (Number.isNaN(endDateObj.getTime())) {
+        return res.status(400).json({ error: "Invalid endDate" });
+      }
+      data.endDate = endDateObj;
+    }
+
+    if (parsed.data.newNumber !== undefined) data.number = parsed.data.newNumber;
+
+    try {
+      const updated = await prisma.checkpoint.update({
+        where: { number: currentNumber },
+        data,
+      });
+      res.json(updated);
+    } catch (e) {
+      res.status(400).json({
+        error:
+          "Failed to update checkpoint. (If renumbering, ensure newNumber is unique.)",
+        detail: String(e?.message ?? e),
+      });
+    }
   }
-});
+);
+
+app.delete(
+  "/admin/checkpoints/:number",
+  requireUser,
+  requireAdmin,
+  async (req, res) => {
+    const n = Number(req.params.number);
+    if (!Number.isFinite(n))
+      return res.status(400).json({ error: "Bad checkpoint number" });
+
+    try {
+      await prisma.checkpoint.delete({ where: { number: n } });
+      res.json({ ok: true });
+    } catch (e) {
+      // likely blocked by foreign keys (requirements referencing checkpointId)
+      res.status(400).json({
+        error:
+          "Failed to delete checkpoint. It may be referenced by requirements/other rows.",
+        detail: String(e?.message ?? e),
+      });
+    }
+  }
+);
 
 // ---------- ADMIN: EVENTS ----------
 app.post("/admin/events", requireUser, requireAdmin, async (req, res) => {
@@ -578,7 +623,9 @@ app.post("/admin/events", requireUser, requireAdmin, async (req, res) => {
 
   const { title, startsAt, categoryKey, serviceHours } = parsed.data;
 
-  const category = await prisma.category.findUnique({ where: { key: categoryKey } });
+  const category = await prisma.category.findUnique({
+    where: { key: categoryKey },
+  });
   if (!category) return res.status(400).json({ error: "Invalid categoryKey" });
 
   const mandatory = categoryKey === "INTERNAL"; // HARD RULE
@@ -614,18 +661,12 @@ app.get("/admin/events", requireUser, requireAdmin, async (req, res) => {
 });
 
 /**
- * ✅ NEW: Update an event (title/time/category/serviceHours) so you can reseed/fix data in prod.
- * Body supports any subset of fields:
- *  - title
- *  - startsAt (ISO string)
- *  - categoryKey
- *  - serviceHours (only applies if final category is SERVICE; otherwise forced null)
- *
- * Note: mandatory remains a hard rule: categoryKey === INTERNAL => mandatory true, else false.
+ * ✅ Update an event (title/time/category/serviceHours)
  */
 app.put("/admin/events/:id", requireUser, requireAdmin, async (req, res) => {
   const eventId = Number(req.params.id);
-  if (!Number.isFinite(eventId)) return res.status(400).json({ error: "Bad event id" });
+  if (!Number.isFinite(eventId))
+    return res.status(400).json({ error: "Bad event id" });
 
   const schema = z.object({
     title: z.string().min(1).optional(),
@@ -656,12 +697,12 @@ app.put("/admin/events/:id", requireUser, requireAdmin, async (req, res) => {
 
   // Determine final category
   const finalCategoryKey = parsed.data.categoryKey ?? existing.category?.key;
-  const finalCategory =
-    finalCategoryKey
-      ? await prisma.category.findUnique({ where: { key: finalCategoryKey } })
-      : null;
+  const finalCategory = finalCategoryKey
+    ? await prisma.category.findUnique({ where: { key: finalCategoryKey } })
+    : null;
 
-  if (!finalCategory) return res.status(400).json({ error: "Invalid categoryKey" });
+  if (!finalCategory)
+    return res.status(400).json({ error: "Invalid categoryKey" });
 
   const data = {};
 
@@ -699,7 +740,8 @@ app.put("/admin/events/:id", requireUser, requireAdmin, async (req, res) => {
 
 app.delete("/admin/events/:id", requireUser, requireAdmin, async (req, res) => {
   const eventId = Number(req.params.id);
-  if (!Number.isFinite(eventId)) return res.status(400).json({ error: "Bad event id" });
+  if (!Number.isFinite(eventId))
+    return res.status(400).json({ error: "Bad event id" });
 
   await prisma.attendance.deleteMany({ where: { eventId } });
   await prisma.event.delete({ where: { id: eventId } });
@@ -708,52 +750,67 @@ app.delete("/admin/events/:id", requireUser, requireAdmin, async (req, res) => {
 });
 
 // ---------- ADMIN: ATTENDANCE (load) ----------
-app.get("/admin/events/:id/attendance", requireUser, requireAdmin, async (req, res) => {
-  const eventId = Number(req.params.id);
-  if (!Number.isFinite(eventId)) return res.status(400).json({ error: "Bad event id" });
+app.get(
+  "/admin/events/:id/attendance",
+  requireUser,
+  requireAdmin,
+  async (req, res) => {
+    const eventId = Number(req.params.id);
+    if (!Number.isFinite(eventId))
+      return res.status(400).json({ error: "Bad event id" });
 
-  const exists = await prisma.event.findUnique({
-    where: { id: eventId },
-    select: { id: true },
-  });
-  if (!exists) return res.status(404).json({ error: "Event not found" });
+    const exists = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { id: true },
+    });
+    if (!exists) return res.status(404).json({ error: "Event not found" });
 
-  const rows = await prisma.attendance.findMany({
-    where: { eventId, present: true },
-    select: { userId: true },
-  });
+    const rows = await prisma.attendance.findMany({
+      where: { eventId, present: true },
+      select: { userId: true },
+    });
 
-  res.json({
-    eventId,
-    presentUserIds: rows.map((r) => r.userId),
-  });
-});
+    res.json({
+      eventId,
+      presentUserIds: rows.map((r) => r.userId),
+    });
+  }
+);
 
 // ---------- ADMIN: ATTENDANCE (checkbox save) ----------
-app.post("/admin/events/:id/attendance", requireUser, requireAdmin, async (req, res) => {
-  const eventId = Number(req.params.id);
-  if (!Number.isFinite(eventId)) return res.status(400).json({ error: "Bad event id" });
+app.post(
+  "/admin/events/:id/attendance",
+  requireUser,
+  requireAdmin,
+  async (req, res) => {
+    const eventId = Number(req.params.id);
+    if (!Number.isFinite(eventId))
+      return res.status(400).json({ error: "Bad event id" });
 
-  const schema = z.object({
-    presentUserIds: z.array(z.number().int()),
-  });
-  const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "Bad input" });
+    const schema = z.object({
+      presentUserIds: z.array(z.number().int()),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Bad input" });
 
-  const exists = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true } });
-  if (!exists) return res.status(404).json({ error: "Event not found" });
+    const exists = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { id: true },
+    });
+    if (!exists) return res.status(404).json({ error: "Event not found" });
 
-  await prisma.attendance.deleteMany({ where: { eventId } });
+    await prisma.attendance.deleteMany({ where: { eventId } });
 
-  const data = parsed.data.presentUserIds.map((userId) => ({
-    eventId,
-    userId,
-    present: true,
-  }));
-  if (data.length) await prisma.attendance.createMany({ data });
+    const data = parsed.data.presentUserIds.map((userId) => ({
+      eventId,
+      userId,
+      present: true,
+    }));
+    if (data.length) await prisma.attendance.createMany({ data });
 
-  res.json({ ok: true, count: data.length });
-});
+    res.json({ ok: true, count: data.length });
+  }
+);
 
 // ---------- ADMIN: ALERTS ----------
 app.get("/admin/alerts", requireUser, requireAdmin, async (req, res) => {
@@ -789,13 +846,14 @@ app.get("/admin/alerts", requireUser, requireAdmin, async (req, res) => {
       if (NON_COUNTING_CATEGORY_KEYS.has(c.key)) continue;
       const required = reqs.get(`${u.classType}:${c.id}`) ?? 0;
       const completedEntry = completedMap.get(c.id) || { count: 0, service: 0 };
-      const completed = c.key === "SERVICE" ? completedEntry.service : completedEntry.count;
+      const completed =
+        c.key === "SERVICE" ? completedEntry.service : completedEntry.count;
 
       const remainingNeeded = Math.max(required - completed, 0);
       if (remainingNeeded === 0) continue;
 
       const remainingOpportunities = oppsMap.get(c.id) || 0;
-      if ((remainingOpportunities - remainingNeeded) >= 1) continue; // fix
+      if (remainingOpportunities - remainingNeeded >= 1) continue;
 
       const status =
         remainingNeeded === remainingOpportunities ? "AT_RISK" : "OFF_TRACK";
@@ -933,10 +991,7 @@ app.get("/leaderboard/teams", requireUser, async (req, res) => {
   }
 
   teams.sort(
-    (a, b) =>
-      b.metCount - a.metCount ||
-      b.pct - a.pct ||
-      a.teamId - b.teamId
+    (a, b) => b.metCount - a.metCount || b.pct - a.pct || a.teamId - b.teamId
   );
 
   res.json({
@@ -1007,6 +1062,115 @@ app.get("/leaderboard/my-team", requireUser, async (req, res) => {
     teamId: req.user.teamId,
     members: out,
   });
+});
+
+// ---------- ADMIN: REQUIREMENTS (grid editor) ----------
+// NOTE: Your earlier version probably failed because classType enums didn’t match your DB.
+// This version:
+//  - returns classTypes from the DB so the frontend can render correctly
+//  - validates updates against actual DB values
+//  - does NOT require a composite unique constraint (uses findFirst + update/create)
+app.get("/admin/requirements", requireUser, requireAdmin, async (req, res) => {
+  try {
+    const [categories, checkpoints, requirements, classTypes] = await Promise.all([
+      prisma.category.findMany({ orderBy: { id: "asc" } }),
+      prisma.checkpoint.findMany({ orderBy: { number: "asc" } }),
+      prisma.requirement.findMany({
+        select: {
+          checkpointId: true,
+          categoryId: true,
+          classType: true,
+          required: true,
+        },
+      }),
+      getValidClassTypes(),
+    ]);
+
+    res.json({ categories, checkpoints, requirements, classTypes });
+  } catch (e) {
+    console.error("GET /admin/requirements error:", e?.message ?? e);
+    res.status(500).json({
+      error: "Failed to load requirements",
+      detail: String(e?.message ?? e),
+    });
+  }
+});
+
+app.put("/admin/requirements", requireUser, requireAdmin, async (req, res) => {
+  const schema = z.object({
+    updates: z.array(
+      z.object({
+        classType: z.string().min(1),
+        categoryId: z.number().int().positive(),
+        checkpointId: z.number().int().positive(),
+        required: z.number().int().min(0),
+      })
+    ),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Bad input" });
+
+  const updates = parsed.data.updates;
+
+  try {
+    const validClassTypes = await getValidClassTypes();
+    if (!validClassTypes.length) {
+      return res.status(400).json({
+        error:
+          "No classTypes found in DB. (Check seed data or users table.)",
+      });
+    }
+
+    const bad = updates
+      .map((u) => u.classType)
+      .filter((ct) => !validClassTypes.includes(ct));
+
+    if (bad.length) {
+      return res.status(400).json({
+        error: `Invalid classType(s): ${Array.from(new Set(bad)).join(", ")}`,
+        validClassTypes,
+      });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const u of updates) {
+        // No composite unique required:
+        const existing = await tx.requirement.findFirst({
+          where: {
+            checkpointId: u.checkpointId,
+            categoryId: u.categoryId,
+            classType: u.classType,
+          },
+          select: { id: true },
+        });
+
+        if (existing?.id) {
+          await tx.requirement.update({
+            where: { id: existing.id },
+            data: { required: u.required },
+          });
+        } else {
+          await tx.requirement.create({
+            data: {
+              checkpointId: u.checkpointId,
+              categoryId: u.categoryId,
+              classType: u.classType,
+              required: u.required,
+            },
+          });
+        }
+      }
+    });
+
+    res.json({ ok: true, updated: updates.length });
+  } catch (e) {
+    console.error("PUT /admin/requirements error:", e?.message ?? e);
+    res.status(500).json({
+      error: "Failed to save requirements",
+      detail: String(e?.message ?? e),
+    });
+  }
 });
 
 // ---------- CHECKPOINTS (read-only for calendar highlighting) ----------

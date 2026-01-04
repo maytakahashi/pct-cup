@@ -9,6 +9,7 @@ import AdminEvents from "./AdminEvents";
 import AdminAttendance from "./AdminAttendance";
 import AdminAlerts from "./AdminAlerts";
 import AdminCheckpoints from "./AdminCheckpoints";
+import AdminRequirements from "./AdminRequirements";
 
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -18,6 +19,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route path="/login" element={<Login />} />
         <Route element={<AdminLayout />}>
           <Route path="/checkpoints" element={<AdminCheckpoints />} />
+          <Route path="/requirements" element={<AdminRequirements />} />
           <Route path="/" element={<Navigate to="/events" replace />} />
           <Route path="/events" element={<AdminEvents />} />
           <Route path="/attendance" element={<AdminAttendance />} />
