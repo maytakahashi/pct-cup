@@ -317,9 +317,7 @@ export default function AdminAttendance() {
 
     const rows = buildAttendanceRows();
 
-    const lines = [
-      ...rows.map((r) => [r.name, r.mark].join("\t")),
-    ];
+    const lines = rows.map((r) => r.mark);
 
     await navigator.clipboard.writeText(lines.join("\n"));
     setSavedMsg(`Copied attendance table to clipboard ✔`);
