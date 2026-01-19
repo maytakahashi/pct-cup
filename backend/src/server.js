@@ -94,8 +94,7 @@ app.post("/auth/login", async (req, res) => {
   res.json({ ok: true });
 });
 
-// ✅ IMPORTANT: logout must work even when session is invalid.
-// Do NOT gate with requireUser, otherwise you can never clear a "stuck" cookie.
+// ✅ logout must work even when session is invalid (don’t gate with requireUser)
 app.post("/auth/logout", async (req, res) => {
   try {
     const token = req.cookies?.[COOKIE_NAME];
@@ -122,7 +121,14 @@ app.post("/auth/logout", async (req, res) => {
 });
 
 app.get("/me", requireUser, async (req, res) => {
-  const u = req.user;
+  // 🔤 include team name for convenience
+  const u = await prisma.user.findUnique({
+    where: { id: req.user.id },
+    include: { team: { select: { name: true } } },
+  });
+
+  if (!u) return res.status(404).json({ error: "User not found" });
+
   res.json({
     id: u.id,
     username: u.username,
@@ -131,6 +137,7 @@ app.get("/me", requireUser, async (req, res) => {
     role: u.role,
     classType: u.classType,
     teamId: u.teamId,
+    teamName: u.team ? u.team.name : null,
   });
 });
 
@@ -324,6 +331,16 @@ app.get("/dashboard/me", requireUser, async (req, res) => {
   const completedMap = await completedByCategoryForUser(req.user.id, cpEnd);
   const oppsMap = await remainingOppsByCategory(cpEnd);
 
+  // 🔤 resolve team name
+  let teamName = null;
+  if (req.user.teamId) {
+    const team = await prisma.team.findUnique({
+      where: { id: req.user.teamId },
+      select: { name: true },
+    });
+    teamName = team?.name ?? null;
+  }
+
   const out = cats.map((c) => {
     const required = reqs.get(`${req.user.classType}:${c.id}`) ?? 0;
     const completedEntry = completedMap.get(c.id) || { count: 0, service: 0 };
@@ -350,6 +367,7 @@ app.get("/dashboard/me", requireUser, async (req, res) => {
       firstName: req.user.firstName,
       lastName: req.user.lastName,
       teamId: req.user.teamId,
+      teamName,
     },
     checkpoint: { number: cp.number, label: cp.label, endDate: cp.endDate },
     categories: out,
@@ -367,6 +385,16 @@ app.get("/dashboard/team", requireUser, async (req, res) => {
 
   const cats = await getCategories();
   const reqs = await requiredMap(cp.id);
+
+  // 🔤 team name
+  let teamName = null;
+  if (req.user.teamId) {
+    const team = await prisma.team.findUnique({
+      where: { id: req.user.teamId },
+      select: { name: true },
+    });
+    teamName = team?.name ?? null;
+  }
 
   const teammates = await prisma.user.findMany({
     where: { teamId: req.user.teamId },
@@ -419,6 +447,7 @@ app.get("/dashboard/team", requireUser, async (req, res) => {
       passed: checkpointPassed,
     },
     teamId: req.user.teamId,
+    teamName,
     members,
   });
 });
@@ -457,6 +486,7 @@ app.get("/admin/roster", requireUser, requireAdmin, async (req, res) => {
       lastName: true,
       username: true,
       teamId: true,
+      team: { select: { name: true } },
     },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
@@ -467,6 +497,7 @@ app.get("/admin/roster", requireUser, requireAdmin, async (req, res) => {
       username: u.username,
       name: `${u.firstName} ${u.lastName}`,
       teamId: u.teamId,
+      teamName: u.team ? u.team.name : null,
     }))
   );
 });
@@ -831,6 +862,7 @@ app.get("/admin/alerts", requireUser, requireAdmin, async (req, res) => {
       lastName: true,
       teamId: true,
       classType: true,
+      team: { select: { name: true } },
     },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
@@ -862,6 +894,7 @@ app.get("/admin/alerts", requireUser, requireAdmin, async (req, res) => {
         username: u.username,
         name: `${u.firstName} ${u.lastName}`,
         teamId: u.teamId,
+        teamName: u.team ? u.team.name : null,
         categoryKey: c.key,
         remainingNeeded,
         remainingOpportunities,
@@ -891,6 +924,7 @@ app.get("/leaderboard", requireUser, async (req, res) => {
       username: true,
       teamId: true,
       classType: true,
+      team: { select: { name: true } },
     },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
@@ -924,6 +958,7 @@ app.get("/leaderboard", requireUser, async (req, res) => {
       username: u.username,
       name: `${u.firstName} ${u.lastName}`,
       teamId: u.teamId,
+      teamName: u.team ? u.team.name : null,
       score: Number(score.toFixed(3)),
       onTrack,
     };
@@ -960,6 +995,12 @@ app.get("/leaderboard/teams", requireUser, async (req, res) => {
     },
   });
 
+  // 🔤 load all team names
+  const teamRows = await prisma.team.findMany({
+    select: { id: true, name: true },
+  });
+  const teamNameById = new Map(teamRows.map((t) => [t.id, t.name]));
+
   const byTeam = new Map();
   for (const b of bros) {
     if (!b.teamId) continue;
@@ -984,14 +1025,15 @@ app.get("/leaderboard/teams", requireUser, async (req, res) => {
 
     teams.push({
       teamId,
+      teamName: teamNameById.get(teamId) ?? null,
       metCount,
       teamSize: members.length,
-      pct: members.length ? metCount / members.length : 0,
+      progress: members.length ? metCount / members.length : 0,
     });
   }
 
   teams.sort(
-    (a, b) => b.metCount - a.metCount || b.pct - a.pct || a.teamId - b.teamId
+    (a, b) => b.metCount - a.metCount || b.progress - a.progress || a.teamId - b.teamId
   );
 
   res.json({
@@ -1004,10 +1046,20 @@ app.get("/leaderboard/my-team", requireUser, async (req, res) => {
   const cp = await resolveNextCheckpoint();
   if (!cp) return res.status(404).json({ error: "No checkpoints found" });
 
+  let teamName = null;
+  if (req.user.teamId) {
+    const team = await prisma.team.findUnique({
+      where: { id: req.user.teamId },
+      select: { name: true },
+    });
+    teamName = team?.name ?? null;
+  }
+
   if (!req.user.teamId) {
     return res.json({
       checkpoint: { number: cp.number, label: cp.label, endDate: cp.endDate },
       teamId: null,
+      teamName: null,
       members: [],
     });
   }
@@ -1060,13 +1112,13 @@ app.get("/leaderboard/my-team", requireUser, async (req, res) => {
   res.json({
     checkpoint: { number: cp.number, label: cp.label, endDate: cp.endDate },
     teamId: req.user.teamId,
+    teamName,
     members: out,
   });
 });
 
 // ---------- ADMIN: REQUIREMENTS (grid editor) ----------
-// NOTE: Your earlier version probably failed because classType enums didn’t match your DB.
-// This version:
+// NOTE: your version:
 //  - returns classTypes from the DB so the frontend can render correctly
 //  - validates updates against actual DB values
 //  - does NOT require a composite unique constraint (uses findFirst + update/create)

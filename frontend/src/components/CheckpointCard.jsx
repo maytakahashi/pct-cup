@@ -14,7 +14,7 @@ export default function CheckpointCard({
   rightBottom = "",
   progress = 0.5, // 0..1
 }) {
-  const pct = Math.round(clamp01(progress) * 100);
+  const progress = Math.round(clamp01(progress) * 100);
 
   return (
     <div className="overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm">
@@ -73,14 +73,14 @@ export default function CheckpointCard({
                 fill="white"
                 fontWeight="700"
               >
-                {pct}%
+                {progress}%
               </text>
             </g>
           </svg>
 
           <div className="mt-1 flex items-center justify-between text-xs text-zinc-500">
             <span>Progress toward next checkpoint</span>
-            <span className="font-medium text-zinc-700">{pct}%</span>
+            <span className="font-medium text-zinc-700">{progress}%</span>
           </div>
         </div>
       </div>

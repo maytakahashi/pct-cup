@@ -10,7 +10,7 @@ export default function LeaderboardRow({
   totalCount,    // e.g. 7
   perCategoryMet // object: { CHAPTER:true, ... }
 }) {
-  const pct = totalCount > 0 ? Math.round((metCount / totalCount) * 100) : 0;
+  const progress = totalCount > 0 ? Math.round((metCount / totalCount) * 100) : 0;
 
   const pills = Object.keys(CATEGORY).map((k) => {
     const c = CATEGORY[k];
@@ -59,7 +59,7 @@ export default function LeaderboardRow({
 
             {/* percent */}
             <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-700">
-              {pct}%
+              {progress}%
             </span>
           </div>
         </div>

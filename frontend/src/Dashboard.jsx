@@ -86,13 +86,13 @@ function formatCheckpoint(cp) {
 }
 
 function GradientProgress({ value }) {
-  const pct = Math.round(clamp01(value) * 100);
+  const progress = Math.round(clamp01(value) * 100);
   return (
     <div className="h-[18px] w-full rounded-full border border-[#23304D] bg-[#0B0F1A] p-0.5">
       <div
         className="h-3.5 rounded-full"
         style={{
-          width: `${pct}%`,
+          width: `${progress}%`,
           background:
             "linear-gradient(90deg, #FF3B30, #FF9500, #FFCC00, #34C759, #007AFF, #5856D6, #AF52DE)",
         }}
@@ -385,7 +385,7 @@ export default function Dashboard() {
             <>
               <Card className="p-4">
                 <h1 className="text-3xl font-extrabold tracking-tight text-[#EAF0FF]">
-                  Team {teamDash.teamId} Stats
+                  Stats – Team {teamDash.teamName || `${teamDash.teamId}`}
                 </h1>
 
                 <div className="mt-2 flex items-center gap-2 text-xl font-semibold text-[#EAF0FF]">

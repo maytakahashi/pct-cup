@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import PageHeader from "./components/PageHeader";
 
-function pct(n) {
+function progress(n) {
   return `${Math.round((n || 0) * 100)}%`;
 }
 
@@ -70,7 +70,10 @@ export default function LeaderboardPage() {
     setErr(null);
     setLoading(true);
     try {
-      const [meRes, lbRes] = await Promise.all([api.get("/me"), api.get("/leaderboard/teams")]);
+      const [meRes, lbRes] = await Promise.all([
+        api.get("/me"),
+        api.get("/leaderboard/teams"),
+      ]);
       setMyTeamId(meRes.data?.teamId ?? null);
       setData(lbRes.data);
     } catch (e) {
@@ -92,11 +95,12 @@ export default function LeaderboardPage() {
         title="PCT Cup Leaderboard"
         subtitle={
           data?.checkpoint?.endDate
-            ? `Next checkpoint ends ${new Date(data.checkpoint.endDate).toLocaleDateString()}`
+            ? `Next checkpoint ends ${new Date(
+                data.checkpoint.endDate
+              ).toLocaleDateString()}`
             : " "
         }
       />
-
 
       {err && (
         <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
@@ -109,8 +113,10 @@ export default function LeaderboardPage() {
       {!loading && (
         <div className="space-y-2">
           {rows.map((t, idx) => {
-            const isMine = myTeamId != null && Number(t.teamId) === Number(myTeamId);
-            const p = clamp01(t.pct);
+            const isMine =
+              myTeamId != null && Number(t.teamId) === Number(myTeamId);
+            const p = clamp01(t.progress);
+            const label = t.teamName || `Team ${t.teamId}`;
 
             return (
               <div
@@ -124,8 +130,6 @@ export default function LeaderboardPage() {
                 {/* left accent stripe (stronger for YOUR team) */}
                 <div
                   className={[
-                    // use fixed top + height to avoid stretching the card vertically
-                    // make stripe taller so it reads visually prominent but doesn't stretch the card
                     "pointer-events-none absolute left-3 top-5 h-19 w-1 rounded-full",
                     isMine
                       ? "bg-[linear-gradient(180deg,#22c55e,#38bdf8,#a78bfa,#f472b6)] opacity-95 shadow-[0_0_24px_rgba(34,197,94,0.20)]"
@@ -140,7 +144,10 @@ export default function LeaderboardPage() {
 
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <div className="text-lg font-semibold text-white">Team {t.teamId}</div>
+                          {/* 🔤 use teamName if present, fallback to "Team {id}" */}
+                          <div className="text-lg font-semibold text-white">
+                            {label}
+                          </div>
 
                           {isMine && (
                             <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/30 bg-emerald-400/10 px-2 py-0.5 text-xs font-semibold text-emerald-200">
@@ -151,23 +158,31 @@ export default function LeaderboardPage() {
 
                         <div className="mt-1 text-sm text-slate-300">
                           Met requirements:{" "}
-                          <span className="font-semibold text-slate-100">{t.metCount}</span> / {t.teamSize} bros{" "}
+                          <span className="font-semibold text-slate-100">
+                            {t.metCount}
+                          </span>{" "}
+                          / {t.teamSize} bros{" "}
                           <span className="text-slate-400">·</span>{" "}
-                          <span className="font-semibold text-slate-200">{pct(p)}</span>
+                          <span className="font-semibold text-slate-200">
+                            {progress(p)}
+                          </span>
                         </div>
                       </div>
                     </div>
 
                     <div className="text-right">
-                      <div className="text-3xl font-semibold tracking-tight text-white">{pct(p)}</div>
-                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">team completion</div>
+                      <div className="text-3xl font-semibold tracking-tight text-white">
+                        {progress(p)}
+                      </div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        team completion
+                      </div>
                     </div>
                   </div>
 
                   <div className="mt-3 space-y-2">
                     <ProgressBar value={p} highlight={isMine} />
-                    <div className="flex items-center justify-between text-xs text-slate-400">
-                    </div>
+                    <div className="flex items-center justify-between text-xs text-slate-400" />
                   </div>
                 </div>
               </div>
