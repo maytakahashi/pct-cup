@@ -372,7 +372,7 @@ export default function AdminAttendance() {
           >
             {events.map((e) => (
               <option key={e.id} value={e.id}>
-                {new Date(e.startsAt).toLocaleString()} — {e.title}
+                {new Date(e.startsAt).toLocaleDateString()} — {e.title}
               </option>
             ))}
           </select>
