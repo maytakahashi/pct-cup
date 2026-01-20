@@ -17,7 +17,7 @@ const TEAM_PFPS = {
   2:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRFeL8_FEi29l43IzWKJy8vxW10p3rM5zXnXA&s",
   3: "https://img.freepik.com/premium-vector/asian-emoticon-with-traditional-look-vector-yellow-emoji-with-mustache-beard-hat_858082-435.jpg?w=360",
   5: "/patel.png",
-  6: "https://eu-images.contentstack.com/v3/assets/bltabaa95ef14172c61/blt121188a63203f7fd/687aa73aff1382e245ef801b/jeffrey-epstein-2004.jpg?width=1280&auto=webp&quality=80&disable=upscale",
+  6: "/sahil.png",
   8: "https://cdn.prod.website-files.com/5e6616ad415f1e3b494ddec8/62d7d207311241020cbfdaed_Female%20Holding%20Playing%20Cards%20Playing%20Poker%201.png",
   };
 
@@ -32,7 +32,7 @@ function TeamAvatar({ src, alt }) {
     <img
       src={currentSrc}
       alt={alt}
-      className="h-12 w-12 shrink-0 rounded-2xl border border-white/10 object-cover shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]"
+      className="h-16 w-16 shrink-0 rounded-2xl border border-white/10 object-cover shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]"
       onError={() => {
         if (currentSrc !== DEFAULT_TEAM_PFP) setCurrentSrc(DEFAULT_TEAM_PFP);
       }}
@@ -72,7 +72,7 @@ function TeamCard({ t, rank, isMine }) {
     <div
       className={[
         "relative overflow-hidden rounded-2xl border bg-white/5 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur",
-        "min-h-[128px]",
+        "min-h-[152px]",
         isMine ? "border-emerald-300/30" : "border-white/10",
         isMine ? "ring-1 ring-emerald-400/20" : "",
       ].join(" ")}
@@ -112,7 +112,7 @@ function TeamCard({ t, rank, isMine }) {
           {/* content column */}
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-4">
-              <div className="flex min-w-0 items-start gap-3">
+              <div className="flex min-w-0 items-start gap-4">
                 <TeamAvatar src={avatarSrc} alt={`${label} avatar`} />
 
                 <div className="min-w-0">
