@@ -11,14 +11,14 @@ function clamp01(x) {
   return Math.max(0, Math.min(1, x));
 }
 
-const DEFAULT_TEAM_PFP = "https://cdn.pfps.gg/pfps/2301-default-2.png";
+const DEFAULT_TEAM_PFP = "https://cdn-icons-png.flaticon.com/256/8184/8184182.png";
 
 const TEAM_PFPS = {
   2:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRFeL8_FEi29l43IzWKJy8vxW10p3rM5zXnXA&s",
   6: "https://eu-images.contentstack.com/v3/assets/bltabaa95ef14172c61/blt121188a63203f7fd/687aa73aff1382e245ef801b/jeffrey-epstein-2004.jpg?width=1280&auto=webp&quality=80&disable=upscale",
   3: "https://img.freepik.com/premium-vector/asian-emoticon-with-traditional-look-vector-yellow-emoji-with-mustache-beard-hat_858082-435.jpg?w=360",
   8: "https://cdn.prod.website-files.com/5e6616ad415f1e3b494ddec8/62d7d207311241020cbfdaed_Female%20Holding%20Playing%20Cards%20Playing%20Poker%201.png",
-  
+
 };
 
 function TeamAvatar({ src, alt }) {
