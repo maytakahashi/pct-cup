@@ -72,7 +72,7 @@ export default function LeaderboardPage() {
     try {
       const [meRes, lbRes] = await Promise.all([
         api.get("/me"),
-        api.get("/leaderboard/teams"),
+        api.get("/api/leaderboard/teams"),
       ]);
       setMyTeamId(meRes.data?.teamId ?? null);
       setData(lbRes.data);

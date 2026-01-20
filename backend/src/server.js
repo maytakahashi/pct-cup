@@ -907,7 +907,8 @@ app.get("/admin/alerts", requireUser, requireAdmin, async (req, res) => {
 });
 
 // ---------- LEADERBOARD ----------
-app.get("/leaderboard", requireUser, async (req, res) => {
+// NOTE: moved under /api/* so bros visiting /leaderboard see the SPA, not raw JSON
+app.get("/api/leaderboard", requireUser, async (req, res) => {
   const checkpoint = Number(req.query.checkpoint || 1);
   const cp = await getCheckpoint(checkpoint);
   if (!cp) return res.status(404).json({ error: "Checkpoint not found" });
@@ -977,7 +978,7 @@ app.get("/leaderboard", requireUser, async (req, res) => {
   });
 });
 
-app.get("/leaderboard/teams", requireUser, async (req, res) => {
+app.get("/api/leaderboard/teams", requireUser, async (req, res) => {
   const cp = await resolveNextCheckpoint();
   if (!cp) return res.status(404).json({ error: "No checkpoints found" });
 
@@ -1042,7 +1043,7 @@ app.get("/leaderboard/teams", requireUser, async (req, res) => {
   });
 });
 
-app.get("/leaderboard/my-team", requireUser, async (req, res) => {
+app.get("/api/leaderboard/my-team", requireUser, async (req, res) => {
   const cp = await resolveNextCheckpoint();
   if (!cp) return res.status(404).json({ error: "No checkpoints found" });
 
