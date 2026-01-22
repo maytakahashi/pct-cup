@@ -32,7 +32,7 @@ function TeamAvatar({ src, alt }) {
     <img
       src={currentSrc}
       alt={alt}
-      className="h-16 w-16 shrink-0 rounded-2xl border border-white/10 object-cover shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]"
+      className="h-12 w-12 sm:h-16 sm:w-16 shrink-0 rounded-2xl border border-white/10 object-cover shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]"
       onError={() => {
         if (currentSrc !== DEFAULT_TEAM_PFP) setCurrentSrc(DEFAULT_TEAM_PFP);
       }}
@@ -72,7 +72,7 @@ function TeamCard({ t, rank, isMine }) {
     <div
       className={[
         "relative overflow-hidden rounded-2xl border bg-white/5 shadow-[0_18px_70px_rgba(0,0,0,0.45)] backdrop-blur",
-        "min-h-[152px]",
+        "min-h-32 sm:min-h-[152px]",
         isMine ? "border-emerald-300/30" : "border-white/10",
         isMine ? "ring-1 ring-emerald-400/20" : "",
       ].join(" ")}
@@ -87,13 +87,13 @@ function TeamCard({ t, rank, isMine }) {
         ].join(" ")}
       />
 
-      <div className="p-5">
+      <div className="p-4 sm:p-5">
         <div className="flex items-start gap-4">
           {/* rank column */}
-          <div className="flex w-14 shrink-0 flex-col items-center pt-0.5">
+          <div className="flex w-12 sm:w-14 shrink-0 flex-col items-center pt-0.5">
             <div
               className={[
-                "mt-1 flex h-10 w-10 items-center justify-center rounded-2xl border text-base font-semibold text-white",
+                "mt-1 flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-2xl border text-base font-semibold text-white",
                 rank === 1
                   ? "border-amber-300/40 bg-amber-400/15 ring-1 ring-amber-300/25"
                   : rank === 2
@@ -111,8 +111,8 @@ function TeamCard({ t, rank, isMine }) {
 
           {/* content column */}
           <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex min-w-0 items-start gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+              <div className="flex min-w-0 items-start gap-3 sm:gap-4">
                 <TeamAvatar src={avatarSrc} alt={`${label} avatar`} />
 
                 <div className="min-w-0">
@@ -141,8 +141,8 @@ function TeamCard({ t, rank, isMine }) {
                 </div>
               </div>
 
-              <div className="text-right">
-                <div className="text-3xl font-semibold tracking-tight text-white">
+              <div className="text-left sm:text-right">
+                <div className="text-2xl sm:text-3xl font-semibold tracking-tight text-white">
                   {progress(p)}
                 </div>
                 <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
