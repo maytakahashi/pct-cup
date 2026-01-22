@@ -133,10 +133,7 @@ function TeamCard({ t, rank, isMine }) {
                     <span className="font-semibold text-slate-100">
                       {t.metCount}
                     </span>{" "}
-                    / {t.teamSize} bros <span className="text-slate-400">·</span>{" "}
-                    <span className="font-semibold text-slate-200">
-                      {progress(p)}
-                    </span>
+                    / {t.teamSize} bros 
                   </div>
                 </div>
               </div>
