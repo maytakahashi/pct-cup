@@ -279,15 +279,19 @@ export default function Dashboard() {
     return formatCheckpoint(meDash?.checkpoint || teamDash?.checkpoint) ?? "Next checkpoint";
   }, [meDash, teamDash]);
 
-  const meSummary = useMemo(() => {
+  const meCategories = useMemo(() => {
     const cats = meDash?.categories ?? [];
-    const total = cats.length;
-    const met = cats.filter((c) => {
+    return cats.filter((c) => c.categoryKey !== "SOCIAL");
+  }, [meDash]);
+
+  const meSummary = useMemo(() => {
+    const total = meCategories.length;
+    const met = meCategories.filter((c) => {
       const remaining = c.remainingNeeded ?? Math.max((c.required ?? 0) - (c.completed ?? 0), 0);
       return remaining === 0;
     }).length;
     return { met, total };
-  }, [meDash]);
+  }, [meCategories]);
 
   const teamCount = teamDash?.members ? teamDash.members.length : undefined;
 
@@ -347,7 +351,7 @@ export default function Dashboard() {
 
       <Card className="overflow-hidden">
         <div className="border-b border-[#23304D] p-4">
-          <SegmentedTabs tab={tab} setTab={setTab} meCount={meDash?.categories?.length} teamCount={teamCount} />
+          <SegmentedTabs tab={tab} setTab={setTab} meCount={meCategories.length} teamCount={teamCount} />
         </div>
 
         <div className="p-4">
@@ -374,7 +378,7 @@ export default function Dashboard() {
               </Card>
 
               <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {meDash.categories.map((c) => (
+                {meCategories.map((c) => (
                   <CategoryCard key={c.categoryKey} c={c} />
                 ))}
               </div>
