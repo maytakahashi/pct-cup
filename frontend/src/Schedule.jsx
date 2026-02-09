@@ -314,7 +314,7 @@ export default function Schedule() {
 
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
         {/* Calendar */}
-        <Card className="overflow-hidden">
+        <Card className="overflow-visible">
           {/* Toolbar */}
           <div className="border-b border-[#23304D] bg-[#0B0F1A] px-3 py-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -342,7 +342,7 @@ export default function Schedule() {
             ))}
           </div>
 
-          <div className="grid grid-cols-7">
+          <div className="grid grid-cols-7 overflow-visible">
             {days.map((d) => {
               const key = ymd(d);
               const dayEvents = eventsByDay.get(key) || [];
@@ -371,10 +371,9 @@ export default function Schedule() {
                     if (!sameMonth(d, month)) setMonth(new Date(d.getFullYear(), d.getMonth(), 1));
                   }}
                   className={[
-                    "group relative h-[92px] w-full border-b border-r border-[#23304D] px-2 py-2 text-left transition",
+                    "group relative z-10 h-[92px] w-full border-b border-r border-[#23304D] px-2 py-2 text-left transition hover:z-40 focus:z-40",
                     inMonth ? "bg-white/6 hover:bg-white/10" : "bg-white/2 hover:bg-white/5 opacity-60",
                     isSel ? "ring-2 ring-inset ring-[#EAF0FF]" : "",
-                    special ? "overflow-hidden" : "",
                   ].join(" ")}
                 >
                   {special && <SpecialGlow items={special.items} />}
@@ -407,7 +406,7 @@ export default function Schedule() {
                     )}
 
                     {dayEvents.length > 0 && (
-                      <div className="pointer-events-none absolute left-2 top-10 z-20 hidden w-[280px] rounded-2xl border border-[#23304D] bg-[#0B0F1A] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)] group-hover:block">
+                      <div className="pointer-events-none absolute left-2 top-10 z-30 hidden w-[280px] rounded-2xl border border-[#23304D] bg-[#0B0F1A] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)] group-hover:block">
                         <div className="text-xs font-semibold text-[#9FB0D0]">{d.toLocaleDateString()}</div>
                         <div className="mt-2 space-y-2">
                           {dayEvents.slice(0, 3).map((e) => {
